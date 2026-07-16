@@ -70,14 +70,17 @@ function IncomeDialog({ products, branchId, cashierId, onDone }: any) {
     e.preventDefault();
     if (!productId) return;
     setBusy(true);
+    const qtyN = Number(qty);
+    const costN = Number(cost) || 0;
     const { error } = await supabase.from("stock_movements").insert({
       type: "income",
       product_id: productId,
-      qty: Number(qty),
-      cost_price: Number(cost) || 0,
+      qty: qtyN,
+      unit_price: costN,
+      amount: qtyN * costN,
       note,
       branch_id: branchId,
-      created_by: cashierId,
+      user_id: cashierId,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
