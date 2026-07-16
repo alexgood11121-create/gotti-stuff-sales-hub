@@ -64,7 +64,7 @@ function ExpenseDialog({ branchId, userId, onDone }: any) {
       amount: Number(amount),
       note,
       branch_id: branchId,
-      created_by: userId,
+      user_id: userId,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
