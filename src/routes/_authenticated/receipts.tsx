@@ -13,16 +13,25 @@ export const Route = createFileRoute("/_authenticated/receipts")({
 function ReceiptsPage() {
   const { role, user } = useAuth();
   const [sales, setSales] = useState<any[]>([]);
+  const [nicks, setNicks] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) return;
-    let q = supabase
-      .from("sales")
-      .select("id,created_at,total,payment_method,cash_amount,card_amount,cashier_id,branches(name)")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (role === "cashier") q = q.eq("cashier_id", user.id);
-    q.then(({ data }) => setSales(data ?? []));
+    (async () => {
+      let q = supabase
+        .from("sales")
+        .select("id,created_at,total,payment_method,cash_amount,card_amount,cashier_id,branches(name)")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (role === "cashier") q = q.eq("cashier_id", user.id);
+      const { data } = await q;
+      setSales(data ?? []);
+      const ids = Array.from(new Set((data ?? []).map((s: any) => s.cashier_id).filter(Boolean)));
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id,nickname").in("id", ids);
+        setNicks(Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nickname])));
+      }
+    })();
   }, [user, role]);
 
   return (
