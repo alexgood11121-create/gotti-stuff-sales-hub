@@ -45,7 +45,7 @@ function ReceiptsPage() {
               <div className="font-mono text-xs text-muted-foreground">#{s.id.slice(0, 8)}</div>
               <div className="text-sm">{formatDate(s.created_at)}</div>
               <div className="text-xs text-muted-foreground">
-                {s.branches?.name ?? "—"} · {s.profiles?.nickname ?? "—"} · {payLabel(s.payment_method)}
+                {s.branches?.name ?? "—"} · {nicks[s.cashier_id] ?? "—"} · {payLabel(s.payment_method)}
               </div>
             </div>
             <div className="text-xl font-bold text-primary">{formatUZS(s.total)}</div>
