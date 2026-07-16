@@ -18,7 +18,7 @@ function ReceiptsPage() {
     if (!user) return;
     let q = supabase
       .from("sales")
-      .select("id,created_at,total,payment_method,cash_amount,card_amount,branches(name),profiles!sales_cashier_id_fkey(nickname)")
+      .select("id,created_at,total,payment_method,cash_amount,card_amount,cashier_id,branches(name)")
       .order("created_at", { ascending: false })
       .limit(100);
     if (role === "cashier") q = q.eq("cashier_id", user.id);
