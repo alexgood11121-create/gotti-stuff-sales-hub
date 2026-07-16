@@ -1,0 +1,13 @@
+{
+  "name": "Gotti Stuff",
+  "short_name": "Gotti",
+  "description": "Кассовое приложение",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1f1c",
+  "theme_color": "#1a2318",
+  "orientation": "landscape",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" }
+  ]
+}
