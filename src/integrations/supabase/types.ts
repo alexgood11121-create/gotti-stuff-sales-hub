@@ -56,6 +56,51 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string
+          branch_id: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          sale_id: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sale_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          branch_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sale_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string | null
