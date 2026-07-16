@@ -110,8 +110,9 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
       const path = `${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from("product-images").upload(path, file);
       if (error) throw error;
-      const { data } = supabase.storage.from("product-images").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
-      const url = (await data)?.signedUrl ?? "";
+      const { data, error: sErr } = await supabase.storage.from("product-images").createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+      if (sErr) throw sErr;
+      const url = data?.signedUrl ?? "";
       setImageUrl(url);
       toast.success("Фото загружено");
     } catch (e: any) {
