@@ -278,6 +278,44 @@ export type Database = {
           },
         ]
       }
+      shifts: {
+        Row: {
+          branch_id: string | null
+          cashier_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          note: string | null
+          started_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          cashier_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          note?: string | null
+          started_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          cashier_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          note?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_movements: {
         Row: {
           amount: number
