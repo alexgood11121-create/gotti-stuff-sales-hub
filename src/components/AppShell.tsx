@@ -218,3 +218,40 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+function ShiftControl({
+  openShift, busy, tick, onToggle,
+}: {
+  openShift: { id: string; started_at: string } | null;
+  busy: boolean;
+  tick: number;
+  onToggle: () => void;
+}) {
+  void tick;
+  const mins = openShift
+    ? Math.max(0, Math.floor((Date.now() - new Date(openShift.started_at).getTime()) / 60000))
+    : 0;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return (
+    <div className="rounded-md border border-sidebar-border p-2 space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">Смена</span>
+        {openShift ? (
+          <span className="font-mono text-primary">{h}ч {m}м</span>
+        ) : (
+          <span className="text-muted-foreground">закрыта</span>
+        )}
+      </div>
+      <Button
+        size="sm"
+        variant={openShift ? "destructive" : "default"}
+        className="w-full h-8 text-xs"
+        onClick={onToggle}
+        disabled={busy}
+      >
+        {openShift ? (<><Square className="w-3 h-3 mr-1" />Закрыть смену</>) : (<><Play className="w-3 h-3 mr-1" />Открыть смену</>)}
+      </Button>
+    </div>
+  );
+}
