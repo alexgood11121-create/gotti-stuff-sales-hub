@@ -207,17 +207,21 @@ function PayDialog({
   }, [open]);
 
   const cashNum = Number(cash) || 0;
-  const cardNum = Number(card) || 0;
 
   let given = 0;
   let cashPaid = 0;
   let cardPaid = 0;
   if (method === "cash") { given = cashNum; cashPaid = Math.min(cashNum, total); cardPaid = 0; }
   else if (method === "card") { given = total; cashPaid = 0; cardPaid = total; }
-  else { given = cashNum + cardNum; cashPaid = cashNum; cardPaid = cardNum; }
+  else {
+    // Смешанная: карта автоматически = остаток после наличных
+    cashPaid = Math.min(Math.max(0, cashNum), total);
+    cardPaid = Math.max(0, total - cashPaid);
+    given = cashPaid + cardPaid;
+  }
 
   const change = method === "cash" ? Math.max(0, cashNum - total) : 0;
-  const insufficient = given < total - 0.01;
+  const insufficient = method === "mixed" ? false : given < total - 0.01;
 
   async function pay() {
     if (!cashierId) return;
@@ -278,14 +282,15 @@ function PayDialog({
           )}
           {(method === "card" || method === "mixed") && (
             <div>
-              <label className="text-sm text-muted-foreground">Карта</label>
+              <label className="text-sm text-muted-foreground">
+                Карта{method === "mixed" ? " (автоматически = остаток)" : ""}
+              </label>
               <Input
                 type="number"
                 inputMode="numeric"
-                value={method === "card" ? String(total) : card}
-                onChange={(e) => setCard(e.target.value)}
-                disabled={method === "card"}
-                className="h-12 text-lg"
+                value={method === "card" ? String(total) : String(cardPaid)}
+                readOnly
+                className="h-12 text-lg bg-muted"
               />
             </div>
           )}

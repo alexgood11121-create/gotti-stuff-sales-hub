@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useOnline } from "@/lib/auth-hooks";
 import { startAutoSync } from "@/lib/sync";
@@ -16,13 +16,17 @@ import {
   LogOut,
   Wifi,
   WifiOff,
-  Bell,
   ArrowDownCircle,
   ArrowUpCircle,
   LayoutDashboard,
+  Clock,
+  Play,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { startShift, endShift, getMyOpenShift } from "@/lib/shifts.functions";
 
 interface Item {
   to: string;
@@ -41,6 +45,7 @@ const items: Item[] = [
   { to: "/admin", label: "Дашборд", icon: <LayoutDashboard className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/branches", label: "Филиалы", icon: <Store className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/cashiers", label: "Кассиры", icon: <Users className="w-5 h-5" />, adminOnly: true },
+  { to: "/admin/shifts", label: "Смены", icon: <Clock className="w-5 h-5" />, adminOnly: true },
   { to: "/settings", label: "Настройки", icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -50,6 +55,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const router = useRouterState();
   const [unread, setUnread] = useState(0);
+  const [openShift, setOpenShift] = useState<{ id: string; started_at: string } | null>(null);
+  const [shiftBusy, setShiftBusy] = useState(false);
+  const [tick, setTick] = useState(0);
 
   const pendingCount = useLiveQuery(
     () => db.pendingSales.where("synced").equals(0).count(),
@@ -60,6 +68,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     return startAutoSync();
   }, []);
+
+  const loadShift = useCallback(async () => {
+    if (role !== "cashier") { setOpenShift(null); return; }
+    try {
+      const s = await getMyOpenShift();
+      setOpenShift(s ? { id: s.id, started_at: s.started_at } : null);
+    } catch { /* ignore */ }
+  }, [role]);
+
+  useEffect(() => { loadShift(); }, [loadShift]);
+
+  useEffect(() => {
+    if (!openShift) return;
+    const t = setInterval(() => setTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, [openShift]);
 
   useEffect(() => {
     if (role !== "admin") return;
@@ -151,6 +175,30 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="text-yellow-500">Ожидает: {pendingCount}</span>
             )}
           </div>
+          {role === "cashier" && (
+            <ShiftControl
+              openShift={openShift}
+              busy={shiftBusy}
+              tick={tick}
+              onToggle={async () => {
+                setShiftBusy(true);
+                try {
+                  if (openShift) {
+                    await endShift();
+                    toast.success("Смена закрыта");
+                  } else {
+                    await startShift({ data: { branch_id: profile?.branch_id ?? null } });
+                    toast.success("Смена открыта");
+                  }
+                  await loadShift();
+                } catch (e: any) {
+                  toast.error(e.message ?? "Ошибка");
+                } finally {
+                  setShiftBusy(false);
+                }
+              }}
+            />
+          )}
           <Button
             variant="ghost"
             className="w-full justify-start text-sm"
@@ -167,6 +215,43 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="flex-1 overflow-hidden">{children}</main>
+    </div>
+  );
+}
+
+function ShiftControl({
+  openShift, busy, tick, onToggle,
+}: {
+  openShift: { id: string; started_at: string } | null;
+  busy: boolean;
+  tick: number;
+  onToggle: () => void;
+}) {
+  void tick;
+  const mins = openShift
+    ? Math.max(0, Math.floor((Date.now() - new Date(openShift.started_at).getTime()) / 60000))
+    : 0;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return (
+    <div className="rounded-md border border-sidebar-border p-2 space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">Смена</span>
+        {openShift ? (
+          <span className="font-mono text-primary">{h}ч {m}м</span>
+        ) : (
+          <span className="text-muted-foreground">закрыта</span>
+        )}
+      </div>
+      <Button
+        size="sm"
+        variant={openShift ? "destructive" : "default"}
+        className="w-full h-8 text-xs"
+        onClick={onToggle}
+        disabled={busy}
+      >
+        {openShift ? (<><Square className="w-3 h-3 mr-1" />Закрыть смену</>) : (<><Play className="w-3 h-3 mr-1" />Открыть смену</>)}
+      </Button>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { Route as AuthenticatedIncomeRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedExpenseRouteImport } from './routes/_authenticated/expense'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminShiftsRouteImport } from './routes/_authenticated/admin.shifts'
 import { Route as AuthenticatedAdminCashiersRouteImport } from './routes/_authenticated/admin.cashiers'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin.branches'
 
@@ -83,6 +84,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminShiftsRoute =
+  AuthenticatedAdminShiftsRouteImport.update({
+    id: '/shifts',
+    path: '/shifts',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCashiersRoute =
   AuthenticatedAdminCashiersRouteImport.update({
     id: '/cashiers',
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/cashiers': typeof AuthenticatedAdminCashiersRoute
+  '/admin/shifts': typeof AuthenticatedAdminShiftsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -123,6 +131,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/cashiers': typeof AuthenticatedAdminCashiersRoute
+  '/admin/shifts': typeof AuthenticatedAdminShiftsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -140,6 +149,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/cashiers': typeof AuthenticatedAdminCashiersRoute
+  '/_authenticated/admin/shifts': typeof AuthenticatedAdminShiftsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/branches'
     | '/admin/cashiers'
+    | '/admin/shifts'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/branches'
     | '/admin/cashiers'
+    | '/admin/shifts'
     | '/admin'
   id:
     | '__root__'
@@ -187,6 +199,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/cashiers'
+    | '/_authenticated/admin/shifts'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -282,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/shifts': {
+      id: '/_authenticated/admin/shifts'
+      path: '/shifts'
+      fullPath: '/admin/shifts'
+      preLoaderRoute: typeof AuthenticatedAdminShiftsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/cashiers': {
       id: '/_authenticated/admin/cashiers'
       path: '/cashiers'
@@ -302,12 +322,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminCashiersRoute: typeof AuthenticatedAdminCashiersRoute
+  AuthenticatedAdminShiftsRoute: typeof AuthenticatedAdminShiftsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminCashiersRoute: AuthenticatedAdminCashiersRoute,
+  AuthenticatedAdminShiftsRoute: AuthenticatedAdminShiftsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
