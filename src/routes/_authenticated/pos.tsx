@@ -282,14 +282,15 @@ function PayDialog({
           )}
           {(method === "card" || method === "mixed") && (
             <div>
-              <label className="text-sm text-muted-foreground">Карта</label>
+              <label className="text-sm text-muted-foreground">
+                Карта{method === "mixed" ? " (автоматически = остаток)" : ""}
+              </label>
               <Input
                 type="number"
                 inputMode="numeric"
-                value={method === "card" ? String(total) : card}
-                onChange={(e) => setCard(e.target.value)}
-                disabled={method === "card"}
-                className="h-12 text-lg"
+                value={method === "card" ? String(total) : String(cardPaid)}
+                readOnly
+                className="h-12 text-lg bg-muted"
               />
             </div>
           )}
