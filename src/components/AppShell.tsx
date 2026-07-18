@@ -55,6 +55,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const router = useRouterState();
   const [unread, setUnread] = useState(0);
+  const [openShift, setOpenShift] = useState<{ id: string; started_at: string } | null>(null);
+  const [shiftBusy, setShiftBusy] = useState(false);
+  const [tick, setTick] = useState(0);
 
   const pendingCount = useLiveQuery(
     () => db.pendingSales.where("synced").equals(0).count(),
@@ -65,6 +68,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     return startAutoSync();
   }, []);
+
+  const loadShift = useCallback(async () => {
+    if (role !== "cashier") { setOpenShift(null); return; }
+    try {
+      const s = await getMyOpenShift();
+      setOpenShift(s ? { id: s.id, started_at: s.started_at } : null);
+    } catch { /* ignore */ }
+  }, [role]);
+
+  useEffect(() => { loadShift(); }, [loadShift]);
+
+  useEffect(() => {
+    if (!openShift) return;
+    const t = setInterval(() => setTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, [openShift]);
 
   useEffect(() => {
     if (role !== "admin") return;
