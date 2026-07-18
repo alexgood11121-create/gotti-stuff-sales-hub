@@ -175,6 +175,30 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="text-yellow-500">Ожидает: {pendingCount}</span>
             )}
           </div>
+          {role === "cashier" && (
+            <ShiftControl
+              openShift={openShift}
+              busy={shiftBusy}
+              tick={tick}
+              onToggle={async () => {
+                setShiftBusy(true);
+                try {
+                  if (openShift) {
+                    await endShift();
+                    toast.success("Смена закрыта");
+                  } else {
+                    await startShift({ data: { branch_id: profile?.branch_id ?? null } });
+                    toast.success("Смена открыта");
+                  }
+                  await loadShift();
+                } catch (e: any) {
+                  toast.error(e.message ?? "Ошибка");
+                } finally {
+                  setShiftBusy(false);
+                }
+              }}
+            />
+          )}
           <Button
             variant="ghost"
             className="w-full justify-start text-sm"
