@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useOnline } from "@/lib/auth-hooks";
 import { startAutoSync } from "@/lib/sync";
@@ -16,13 +16,17 @@ import {
   LogOut,
   Wifi,
   WifiOff,
-  Bell,
   ArrowDownCircle,
   ArrowUpCircle,
   LayoutDashboard,
+  Clock,
+  Play,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { startShift, endShift, getMyOpenShift } from "@/lib/shifts.functions";
 
 interface Item {
   to: string;
@@ -41,6 +45,7 @@ const items: Item[] = [
   { to: "/admin", label: "Дашборд", icon: <LayoutDashboard className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/branches", label: "Филиалы", icon: <Store className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/cashiers", label: "Кассиры", icon: <Users className="w-5 h-5" />, adminOnly: true },
+  { to: "/admin/shifts", label: "Смены", icon: <Clock className="w-5 h-5" />, adminOnly: true },
   { to: "/settings", label: "Настройки", icon: <Settings className="w-5 h-5" /> },
 ];
 
