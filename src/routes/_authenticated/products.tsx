@@ -84,12 +84,15 @@ function ProductsPage() {
   );
 }
 
+interface SizeRow { size: string; sale_price: string; cost_price: string }
+
 function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
   const [name, setName] = useState("");
   const [cost, setCost] = useState("");
   const [sale, setSale] = useState("");
   const [cat, setCat] = useState<string>("");
   const [imageUrl, setImageUrl] = useState<string>("");
+  const [sizes, setSizes] = useState<SizeRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -98,8 +101,14 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
       setName(editing.name); setCost(String(editing.cost_price));
       setSale(String(editing.sale_price)); setCat(editing.category_id ?? "");
       setImageUrl(editing.image_url ?? "");
+      const s = Array.isArray(editing.sizes) ? editing.sizes : [];
+      setSizes(s.map((x: any) => ({
+        size: String(x.size ?? ""),
+        sale_price: String(x.sale_price ?? ""),
+        cost_price: x.cost_price != null ? String(x.cost_price) : "",
+      })));
     } else {
-      setName(""); setCost(""); setSale(""); setCat(""); setImageUrl("");
+      setName(""); setCost(""); setSale(""); setCat(""); setImageUrl(""); setSizes([]);
     }
   }, [editing, open]);
 
@@ -120,12 +129,26 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
     } finally { setUploading(false); }
   }
 
+  function updateSize(i: number, patch: Partial<SizeRow>) {
+    setSizes((rows) => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  }
+  function addSize() { setSizes((r) => [...r, { size: "", sale_price: "", cost_price: "" }]); }
+  function removeSize(i: number) { setSizes((r) => r.filter((_, idx) => idx !== i)); }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    const cleanSizes = sizes
+      .filter((s) => s.size.trim() && s.sale_price !== "")
+      .map((s) => ({
+        size: s.size.trim(),
+        sale_price: Number(s.sale_price),
+        ...(s.cost_price !== "" ? { cost_price: Number(s.cost_price) } : {}),
+      }));
     const payload = {
       name, cost_price: Number(cost), sale_price: Number(sale),
       category_id: cat || null, image_url: imageUrl || null,
+      sizes: cleanSizes,
     };
     const q = editing
       ? supabase.from("products").update(payload).eq("id", editing.id)
@@ -139,7 +162,7 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{editing ? "Редактирование" : "Новый товар"}</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div className="flex items-center gap-3">
@@ -169,6 +192,40 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2 border-t border-border pt-3">
+            <div className="flex items-center justify-between">
+              <Label>Размеры (необязательно)</Label>
+              <Button type="button" size="sm" variant="outline" onClick={addSize}>
+                <Plus className="w-3 h-3 mr-1" />Добавить размер
+              </Button>
+            </div>
+            {sizes.length === 0 && (
+              <div className="text-xs text-muted-foreground">
+                Если у товара есть варианты (S/M/L, 0.3/0.5 л и т.д.) — добавьте их со своей ценой. Кассир выберет размер при добавлении.
+              </div>
+            )}
+            {sizes.map((s, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                <div>
+                  <Label className="text-xs">Размер</Label>
+                  <Input value={s.size} onChange={(e) => updateSize(i, { size: e.target.value })} placeholder="S / 0.5л" />
+                </div>
+                <div>
+                  <Label className="text-xs">Цена продажи</Label>
+                  <Input type="number" value={s.sale_price} onChange={(e) => updateSize(i, { sale_price: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Закуп (опц.)</Label>
+                  <Input type="number" value={s.cost_price} onChange={(e) => updateSize(i, { cost_price: e.target.value })} />
+                </div>
+                <Button type="button" size="icon" variant="ghost" onClick={() => removeSize(i)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
           <Button type="submit" className="w-full" disabled={busy}>Сохранить</Button>
         </form>
       </DialogContent>
