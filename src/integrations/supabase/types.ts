@@ -111,6 +111,8 @@ export type Database = {
           is_active: boolean
           name: string
           sale_price: number
+          sales_count: number
+          sizes: Json
           stock: number
         }
         Insert: {
@@ -122,6 +124,8 @@ export type Database = {
           is_active?: boolean
           name: string
           sale_price?: number
+          sales_count?: number
+          sizes?: Json
           stock?: number
         }
         Update: {
@@ -133,6 +137,8 @@ export type Database = {
           is_active?: boolean
           name?: string
           sale_price?: number
+          sales_count?: number
+          sizes?: Json
           stock?: number
         }
         Relationships: [
@@ -187,6 +193,7 @@ export type Database = {
           sale_id: string
           total: number
           unit_price: number
+          variant_size: string | null
         }
         Insert: {
           cost_price?: number
@@ -197,6 +204,7 @@ export type Database = {
           sale_id: string
           total: number
           unit_price: number
+          variant_size?: string | null
         }
         Update: {
           cost_price?: number
@@ -207,6 +215,7 @@ export type Database = {
           sale_id?: string
           total?: number
           unit_price?: number
+          variant_size?: string | null
         }
         Relationships: [
           {
