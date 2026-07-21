@@ -212,6 +212,26 @@ function POSPage() {
         cashierId={user?.id}
         branchId={profile?.branch_id ?? null}
       />
+
+      <Dialog open={!!sizePicker} onOpenChange={(v) => !v && setSizePicker(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{sizePicker?.name} — выберите размер</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-2">
+            {sizePicker?.sizes?.map((s) => (
+              <button
+                key={s.size}
+                onClick={() => { addLine(sizePicker, s); setSizePicker(null); }}
+                className="flex items-center justify-between bg-card border border-border hover:border-primary rounded-lg p-4 active:scale-95 transition"
+              >
+                <span className="font-semibold text-base">{s.size}</span>
+                <span className="text-primary font-bold">{formatUZS(s.sale_price)}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
