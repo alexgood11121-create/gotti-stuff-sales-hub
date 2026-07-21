@@ -1,5 +1,11 @@
 import Dexie, { type Table } from "dexie";
 
+export interface ProductSize {
+  size: string;
+  sale_price: number;
+  cost_price?: number;
+}
+
 export interface CachedProduct {
   id: string;
   name: string;
@@ -9,6 +15,8 @@ export interface CachedProduct {
   category_id: string | null;
   stock: number;
   is_active: boolean;
+  sizes: ProductSize[];
+  sales_count: number;
 }
 
 export interface CachedCategory {
@@ -20,6 +28,7 @@ export interface CachedCategory {
 export interface PendingSaleItem {
   product_id: string;
   product_name: string;
+  variant_size?: string | null;
   qty: number;
   unit_price: number;
   cost_price: number;
@@ -52,6 +61,11 @@ class GottiDB extends Dexie {
     super("gotti-stuff-db");
     this.version(1).stores({
       products: "id, name, category_id, is_active",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+    });
+    this.version(2).stores({
+      products: "id, name, category_id, is_active, sales_count",
       categories: "id, name",
       pendingSales: "client_uuid, synced, created_at",
     });

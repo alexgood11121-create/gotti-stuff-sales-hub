@@ -19,8 +19,10 @@ export const Route = createFileRoute("/_authenticated/pos")({
 });
 
 interface CartLine {
+  key: string;
   product_id: string;
   name: string;
+  variant_size?: string | null;
   qty: number;
   unit_price: number;
   cost_price: number;
@@ -60,27 +62,50 @@ function POSPage() {
     return (products ?? [])
       .filter((p) => p.is_active)
       .filter((p) => cat === "all" || p.category_id === cat)
-      .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()));
+      .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => (b.sales_count ?? 0) - (a.sales_count ?? 0) || a.name.localeCompare(b.name));
   }, [products, cat, search]);
 
   const total = cart.reduce((s, l) => s + l.qty * l.unit_price, 0);
 
-  function addToCart(p: CachedProduct) {
+  const [sizePicker, setSizePicker] = useState<CachedProduct | null>(null);
+
+  function addLine(p: CachedProduct, variant?: { size: string; sale_price: number; cost_price?: number }) {
+    const key = variant ? `${p.id}::${variant.size}` : p.id;
+    const unit_price = variant ? Number(variant.sale_price) : Number(p.sale_price);
+    const cost_price = variant ? Number(variant.cost_price ?? p.cost_price) : Number(p.cost_price);
     setCart((c) => {
-      const ex = c.find((l) => l.product_id === p.id);
-      if (ex) return c.map((l) => l.product_id === p.id ? { ...l, qty: l.qty + 1 } : l);
-      return [...c, { product_id: p.id, name: p.name, qty: 1, unit_price: Number(p.sale_price), cost_price: Number(p.cost_price) }];
+      const ex = c.find((l) => l.key === key);
+      if (ex) return c.map((l) => l.key === key ? { ...l, qty: l.qty + 1 } : l);
+      return [...c, {
+        key,
+        product_id: p.id,
+        name: p.name,
+        variant_size: variant?.size ?? null,
+        qty: 1,
+        unit_price,
+        cost_price,
+      }];
     });
   }
 
-  function changeQty(id: string, delta: number) {
+  function onProductClick(p: CachedProduct) {
+    const sizes = Array.isArray(p.sizes) ? p.sizes : [];
+    if (sizes.length > 0) {
+      setSizePicker(p);
+    } else {
+      addLine(p);
+    }
+  }
+
+  function changeQty(key: string, delta: number) {
     setCart((c) => c
-      .map((l) => l.product_id === id ? { ...l, qty: l.qty + delta } : l)
+      .map((l) => l.key === key ? { ...l, qty: l.qty + delta } : l)
       .filter((l) => l.qty > 0));
   }
 
-  function removeLine(id: string) {
-    setCart((c) => c.filter((l) => l.product_id !== id));
+  function removeLine(key: string) {
+    setCart((c) => c.filter((l) => l.key !== key));
   }
 
   function clearCart() { setCart([]); }
@@ -113,23 +138,29 @@ function POSPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {filtered.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => addToCart(p)}
-                  className="bg-card border border-border hover:border-primary rounded-lg p-3 text-left transition-colors flex flex-col active:scale-95"
-                >
-                  <div className="aspect-square rounded-md bg-muted overflow-hidden mb-2 flex items-center justify-center">
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Package className="w-8 h-8 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="font-medium text-sm line-clamp-2 flex-1">{p.name}</div>
-                  <div className="text-primary font-semibold text-sm mt-1">{formatUZS(p.sale_price)}</div>
-                </button>
-              ))}
+              {filtered.map((p) => {
+                const hasSizes = Array.isArray(p.sizes) && p.sizes.length > 0;
+                const priceLabel = hasSizes
+                  ? `от ${formatUZS(Math.min(...p.sizes.map((s) => Number(s.sale_price))))}`
+                  : formatUZS(p.sale_price);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onProductClick(p)}
+                    className="bg-card border border-border hover:border-primary rounded-lg p-3 text-left transition-colors flex flex-col active:scale-95"
+                  >
+                    <div className="aspect-square rounded-md bg-muted overflow-hidden mb-2 flex items-center justify-center">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Package className="w-8 h-8 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="font-medium text-sm line-clamp-2 flex-1">{p.name}</div>
+                    <div className="text-primary font-semibold text-sm mt-1">{priceLabel}</div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -145,16 +176,19 @@ function POSPage() {
           {cart.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-16">Корзина пуста</div>
           ) : cart.map((l) => (
-            <div key={l.product_id} className="bg-card rounded-lg p-3">
+            <div key={l.key} className="bg-card rounded-lg p-3">
               <div className="flex justify-between items-start gap-2">
-                <div className="font-medium text-sm flex-1">{l.name}</div>
-                <button onClick={() => removeLine(l.product_id)}><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
+                <div className="font-medium text-sm flex-1">
+                  {l.name}
+                  {l.variant_size && <span className="text-muted-foreground"> · {l.variant_size}</span>}
+                </div>
+                <button onClick={() => removeLine(l.key)}><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.product_id, -1)}><Minus className="w-3 h-3" /></Button>
+                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.key, -1)}><Minus className="w-3 h-3" /></Button>
                   <span className="w-8 text-center font-semibold">{l.qty}</span>
-                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.product_id, 1)}><Plus className="w-3 h-3" /></Button>
+                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.key, 1)}><Plus className="w-3 h-3" /></Button>
                 </div>
                 <div className="text-sm font-semibold">{formatUZS(l.qty * l.unit_price)}</div>
               </div>
@@ -178,6 +212,26 @@ function POSPage() {
         cashierId={user?.id}
         branchId={profile?.branch_id ?? null}
       />
+
+      <Dialog open={!!sizePicker} onOpenChange={(v) => !v && setSizePicker(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{sizePicker?.name} — выберите размер</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-2">
+            {sizePicker?.sizes?.map((s) => (
+              <button
+                key={s.size}
+                onClick={() => { addLine(sizePicker, s); setSizePicker(null); }}
+                className="flex items-center justify-between bg-card border border-border hover:border-primary rounded-lg p-4 active:scale-95 transition"
+              >
+                <span className="font-semibold text-base">{s.size}</span>
+                <span className="text-primary font-bold">{formatUZS(s.sale_price)}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -240,6 +294,7 @@ function PayDialog({
         items: cart.map((l) => ({
           product_id: l.product_id,
           product_name: l.name,
+          variant_size: l.variant_size ?? null,
           qty: l.qty,
           unit_price: l.unit_price,
           cost_price: l.cost_price,
