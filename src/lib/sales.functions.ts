@@ -5,6 +5,7 @@ import { z } from "zod";
 const saleItemSchema = z.object({
   product_id: z.string().uuid().nullable(),
   product_name: z.string(),
+  variant_size: z.string().nullable().optional(),
   qty: z.number().positive(),
   unit_price: z.number().nonnegative(),
   cost_price: z.number().nonnegative(),
