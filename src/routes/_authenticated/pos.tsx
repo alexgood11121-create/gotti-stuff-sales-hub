@@ -62,27 +62,50 @@ function POSPage() {
     return (products ?? [])
       .filter((p) => p.is_active)
       .filter((p) => cat === "all" || p.category_id === cat)
-      .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()));
+      .filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => (b.sales_count ?? 0) - (a.sales_count ?? 0) || a.name.localeCompare(b.name));
   }, [products, cat, search]);
 
   const total = cart.reduce((s, l) => s + l.qty * l.unit_price, 0);
 
-  function addToCart(p: CachedProduct) {
+  const [sizePicker, setSizePicker] = useState<CachedProduct | null>(null);
+
+  function addLine(p: CachedProduct, variant?: { size: string; sale_price: number; cost_price?: number }) {
+    const key = variant ? `${p.id}::${variant.size}` : p.id;
+    const unit_price = variant ? Number(variant.sale_price) : Number(p.sale_price);
+    const cost_price = variant ? Number(variant.cost_price ?? p.cost_price) : Number(p.cost_price);
     setCart((c) => {
-      const ex = c.find((l) => l.product_id === p.id);
-      if (ex) return c.map((l) => l.product_id === p.id ? { ...l, qty: l.qty + 1 } : l);
-      return [...c, { product_id: p.id, name: p.name, qty: 1, unit_price: Number(p.sale_price), cost_price: Number(p.cost_price) }];
+      const ex = c.find((l) => l.key === key);
+      if (ex) return c.map((l) => l.key === key ? { ...l, qty: l.qty + 1 } : l);
+      return [...c, {
+        key,
+        product_id: p.id,
+        name: p.name,
+        variant_size: variant?.size ?? null,
+        qty: 1,
+        unit_price,
+        cost_price,
+      }];
     });
   }
 
-  function changeQty(id: string, delta: number) {
+  function onProductClick(p: CachedProduct) {
+    const sizes = Array.isArray(p.sizes) ? p.sizes : [];
+    if (sizes.length > 0) {
+      setSizePicker(p);
+    } else {
+      addLine(p);
+    }
+  }
+
+  function changeQty(key: string, delta: number) {
     setCart((c) => c
-      .map((l) => l.product_id === id ? { ...l, qty: l.qty + delta } : l)
+      .map((l) => l.key === key ? { ...l, qty: l.qty + delta } : l)
       .filter((l) => l.qty > 0));
   }
 
-  function removeLine(id: string) {
-    setCart((c) => c.filter((l) => l.product_id !== id));
+  function removeLine(key: string) {
+    setCart((c) => c.filter((l) => l.key !== key));
   }
 
   function clearCart() { setCart([]); }
