@@ -64,6 +64,11 @@ class GottiDB extends Dexie {
       categories: "id, name",
       pendingSales: "client_uuid, synced, created_at",
     });
+    this.version(2).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+    });
   }
 }
 
