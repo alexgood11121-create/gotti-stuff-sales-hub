@@ -274,6 +274,7 @@ function PayDialog({
         items: cart.map((l) => ({
           product_id: l.product_id,
           product_name: l.name,
+          variant_size: l.variant_size ?? null,
           qty: l.qty,
           unit_price: l.unit_price,
           cost_price: l.cost_price,
