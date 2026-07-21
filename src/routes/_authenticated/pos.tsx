@@ -19,8 +19,10 @@ export const Route = createFileRoute("/_authenticated/pos")({
 });
 
 interface CartLine {
+  key: string;
   product_id: string;
   name: string;
+  variant_size?: string | null;
   qty: number;
   unit_price: number;
   cost_price: number;
