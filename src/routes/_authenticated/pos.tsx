@@ -176,16 +176,19 @@ function POSPage() {
           {cart.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-16">Корзина пуста</div>
           ) : cart.map((l) => (
-            <div key={l.product_id} className="bg-card rounded-lg p-3">
+            <div key={l.key} className="bg-card rounded-lg p-3">
               <div className="flex justify-between items-start gap-2">
-                <div className="font-medium text-sm flex-1">{l.name}</div>
-                <button onClick={() => removeLine(l.product_id)}><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
+                <div className="font-medium text-sm flex-1">
+                  {l.name}
+                  {l.variant_size && <span className="text-muted-foreground"> · {l.variant_size}</span>}
+                </div>
+                <button onClick={() => removeLine(l.key)}><Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" /></button>
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
-                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.product_id, -1)}><Minus className="w-3 h-3" /></Button>
+                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.key, -1)}><Minus className="w-3 h-3" /></Button>
                   <span className="w-8 text-center font-semibold">{l.qty}</span>
-                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.product_id, 1)}><Plus className="w-3 h-3" /></Button>
+                  <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => changeQty(l.key, 1)}><Plus className="w-3 h-3" /></Button>
                 </div>
                 <div className="text-sm font-semibold">{formatUZS(l.qty * l.unit_price)}</div>
               </div>
