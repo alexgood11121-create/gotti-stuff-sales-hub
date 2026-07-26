@@ -1,31 +1,30 @@
-## Что показывает скрин
+План без догадок:
 
-Это лог **предыдущего** запуска workflow (до моего последнего фикса). Красный шаг — `Install Capacitor build tools`, ошибка:
+1. **Сначала получить доступ к реальному GitHub-репозиторию**
+   - Сейчас я проверил публично: `https://github.com/alexgood11121-create/gotti-stuff-sales-hub/releases/latest` отдаёт **404**.
+   - Это значит одно из двух: репозиторий приватный для внешней проверки, либо release `latest` ещё не создан из-за падения Actions.
+   - Подключение Lovable к GitHub для синка кода — это не то же самое, что доступ агента к GitHub API. Чтобы я сам увидел Actions/логи/релизы, нужно подключить **GitHub App connector** в чате, либо сделать репозиторий публичным на время проверки.
 
-```
-[error] Could not find installation of TypeScript.
-To use capacitor.config.ts files, you must install TypeScript in your project
-```
+2. **Проверить последний запуск GitHub Actions, а не старые скриншоты**
+   - Открыть последний failed run.
+   - Посмотреть точный красный шаг.
+   - Забрать последние строки лога и понять: падает установка зависимостей, Gradle, Android SDK, release upload или permission `contents: write`.
 
-Причина: `cap --version` пытался распарсить `capacitor.config.ts`, а в изолированном `.capacitor-tools/node_modules` не было TypeScript.
+3. **Исправить workflow так, чтобы APK всегда был доступен двумя способами**
+   - `Actions → Run → Artifacts` — временный файл APK, доступен даже если release не создался.
+   - `Releases → latest → Assets` — постоянный файл `gotti-stuff-latest.apk`.
+   - Если GitHub Release не обновляется, добавить удаление/перезапись старого `latest` release или заменить на стабильный versioned release.
 
-## Почему это уже неактуально
+4. **Проверить права GitHub Actions**
+   - Убедиться, что в репозитории включено: `Settings → Actions → General → Workflow permissions → Read and write permissions`.
+   - Без этого APK может собраться, но релиз/Assets не появятся.
 
-В последнем коммите я **полностью убрал** запуск Capacitor CLI из CI:
-- Папка `android/` теперь закоммичена в репо (сгенерирована локально).
-- CI ставит только `@capacitor/android@8.4.2` через npm (нужно Gradle для `../node_modules/@capacitor/android/capacitor`).
-- Дальше сразу `./gradlew assembleDebug --stacktrace`.
-- Никаких `cap add`, `cap sync`, `cap --version`, TypeScript в CI не требуется.
+5. **Дать тебе только проверенную ссылку**
+   - Я больше не буду давать ссылку “наугад”.
+   - Финальную ссылку дам только после подтверждения, что release asset реально существует или что artifact появился в последнем run.
 
-## Что делать сейчас
+Что нужно от тебя сейчас:
 
-1. Убедись, что последний коммит от Lovable синхронизировался в GitHub (в репо должен появиться коммит с новой папкой `android/` и переписанным `.github/workflows/android-build.yml` без шага `Install Capacitor build tools`).
-2. Открой **Actions → Android Build → Run workflow** (или сделай Re-run последнего запуска).
-3. Дождись зелёной галочки.
-4. Ссылка: `https://github.com/alexgood11121-create/gotti-stuff-sales-hub/releases/download/latest/gotti-stuff-latest.apk`
-
-## План действий с моей стороны
-
-Ничего менять не нужно — фикс уже в коде. Если после нового запуска снова упадёт, пришли скрин **нового** красного шага (не этого старого) — тогда починю по конкретной ошибке.
-
-Одобри план, если хочешь, чтобы я на всякий случай перепроверил, что в репо действительно попала папка `android/` и новый workflow, и добавил дополнительную диагностику. Иначе просто запусти workflow — этого достаточно.
+- Либо подключи GitHub как **App connector** здесь в Lovable, чтобы я сам проверил Actions и releases.
+- Либо открой GitHub и сделай репозиторий временно публичным.
+- Минимум, если не хочешь подключать: пришли скрин/текст последних 30–50 строк **последнего** красного шага в Actions, не старого запуска.
