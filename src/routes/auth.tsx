@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveCashierEmail } from "@/lib/cashiers.functions";
@@ -12,16 +12,28 @@ import { Store } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+  }),
   component: AuthPage,
 });
 
+function safeNext(next: string | undefined): string {
+  if (!next) return "/";
+  // Only allow same-origin relative paths.
+  if (!next.startsWith("/") || next.startsWith("//")) return "/";
+  return next;
+}
+
 function AuthPage() {
   const nav = useNavigate();
+  const { next } = useSearch({ from: "/auth" });
+  const target = safeNext(next);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) nav({ to: "/" });
+      if (data.user) window.location.replace(target);
     });
-  }, [nav]);
+  }, [target]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -38,19 +50,18 @@ function AuthPage() {
             <TabsTrigger value="cashier">Кассир</TabsTrigger>
             <TabsTrigger value="admin">Админ</TabsTrigger>
           </TabsList>
-          <TabsContent value="cashier"><CashierForm /></TabsContent>
-          <TabsContent value="admin"><AdminForm /></TabsContent>
+          <TabsContent value="cashier"><CashierForm target={target} nav={nav} /></TabsContent>
+          <TabsContent value="admin"><AdminForm target={target} nav={nav} /></TabsContent>
         </Tabs>
       </Card>
     </div>
   );
 }
 
-function CashierForm() {
+function CashierForm({ target, nav }: { target: string; nav: ReturnType<typeof useNavigate> }) {
   const [nickname, setNick] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
-  const nav = useNavigate();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +71,8 @@ function CashierForm() {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pin });
       if (error) throw error;
       toast.success("Добро пожаловать");
-      nav({ to: "/pos" });
+      if (target !== "/") window.location.replace(target);
+      else nav({ to: "/pos" });
     } catch (e: any) {
       toast.error(e.message ?? "Неверный никнейм или PIN");
     } finally {
@@ -84,22 +96,23 @@ function CashierForm() {
   );
 }
 
-function AdminForm() {
+function AdminForm({ target, nav }: { target: string; nav: ReturnType<typeof useNavigate> }) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPass] = useState("");
   const [loading, setLoading] = useState(false);
-  const nav = useNavigate();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "signup") {
+        const emailRedirectTo =
+          target === "/" ? window.location.origin : window.location.origin + target;
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo },
         });
         if (error) throw error;
         toast.success("Регистрация выполнена");
@@ -107,7 +120,8 @@ function AdminForm() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      nav({ to: "/" });
+      if (target !== "/") window.location.replace(target);
+      else nav({ to: "/" });
     } catch (e: any) {
       toast.error(e.message);
     } finally {

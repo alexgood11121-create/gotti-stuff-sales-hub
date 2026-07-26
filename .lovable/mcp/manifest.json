@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://nmgrzomlrkuzknturedq.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "gotti-stuff-mcp",
+      "version": "0.1.0",
+      "title": "Gotti Stuff POS"
+    },
+    "tools": [
+      {
+        "name": "who_am_i",
+        "title": "Кто я",
+        "description": "Возвращает id, email, ник, роль и филиал текущего пользователя.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_branches",
+        "title": "Список филиалов",
+        "description": "Возвращает филиалы, доступные текущему пользователю (RLS).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_products",
+        "title": "Список товаров",
+        "description": "Возвращает товары каталога. Опционально фильтрует по подстроке названия и лимиту.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Подстрока для поиска в названии товара."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Максимум записей (по умолчанию 100)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_sales",
+        "title": "Список чеков",
+        "description": "Возвращает чеки за период с позициями. Даты в формате ISO. По умолчанию — последние 24 часа, лимит 50.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "ISO-дата начала периода (включительно)."
+            },
+            "to": {
+              "type": "string",
+              "description": "ISO-дата конца периода (исключительно)."
+            },
+            "branch_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Фильтр по филиалу."
+            },
+            "payment_method": {
+              "type": "string",
+              "enum": [
+                "cash",
+                "card",
+                "mixed"
+              ],
+              "description": "Фильтр по способу оплаты."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "sales_summary",
+        "title": "Сводка продаж",
+        "description": "Агрегированная сводка продаж за период: количество чеков, выручка, суммы по наличным/карте, разбивка по филиалам.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "ISO-дата начала. По умолчанию — начало сегодняшнего дня."
+            },
+            "to": {
+              "type": "string",
+              "description": "ISO-дата конца (исключительно). По умолчанию — сейчас."
+            },
+            "branch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_shifts",
+        "title": "Смены кассиров",
+        "description": "Список фактических смен кассиров за период (открытые и закрытые).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            },
+            "branch_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
