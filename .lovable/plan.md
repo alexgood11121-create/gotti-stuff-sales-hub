@@ -1,43 +1,31 @@
-## Проблема
+## Что показывает скрин
 
-Сборка падает на шаге установки Capacitor CLI / `cap add android` / `cap sync`. Симлинк `node_modules → .capacitor-tools/node_modules` — хрупкий: `cap` при запуске читает `package.json` проекта и лезет за зависимостями, которых там нет, либо `cap add android` не находит нужные плагины. Публичного доступа к логам приватного репо у меня нет, но паттерн сбоев указывает именно сюда — а мы делаем уже 4-ю попытку.
+Это лог **предыдущего** запуска workflow (до моего последнего фикса). Красный шаг — `Install Capacitor build tools`, ошибка:
 
-## Решение — убрать Capacitor из CI полностью
+```
+[error] Could not find installation of TypeScript.
+To use capacitor.config.ts files, you must install TypeScript in your project
+```
 
-Идея: сгенерировать папку `android/` один раз локально (в песочнице), закоммитить её в репо. Тогда GitHub Actions делает только одно: копирует `www/` в `android/app/src/main/assets/public/` и запускает `./gradlew assembleDebug`. Без Node, без bun, без Capacitor CLI, без symlink-хаков.
+Причина: `cap --version` пытался распарсить `capacitor.config.ts`, а в изолированном `.capacitor-tools/node_modules` не было TypeScript.
 
-Так как APK — это WebView-обёртка, которая грузит `https://gotti-stuff-sales-hub.lovable.app`, а `www/index.html` — статичный редирект в 20 строк, `cap sync` в CI не нужен вообще.
+## Почему это уже неактуально
 
-## Шаги
+В последнем коммите я **полностью убрал** запуск Capacitor CLI из CI:
+- Папка `android/` теперь закоммичена в репо (сгенерирована локально).
+- CI ставит только `@capacitor/android@8.4.2` через npm (нужно Gradle для `../node_modules/@capacitor/android/capacitor`).
+- Дальше сразу `./gradlew assembleDebug --stacktrace`.
+- Никаких `cap add`, `cap sync`, `cap --version`, TypeScript в CI не требуется.
 
-1. **Сгенерировать `android/` в песочнице**
-   - `bun install` + `bunx cap add android` локально.
-   - Убедиться, что `capacitor.config.ts` уже настроен (url на опубликованный сайт).
-   - `bunx cap sync android` → скопирует `www/` и `capacitor.config.json` внутрь `android/`.
+## Что делать сейчас
 
-2. **Закоммитить папку `android/`** в репо (уберу её из `.gitignore`, если она там есть).
+1. Убедись, что последний коммит от Lovable синхронизировался в GitHub (в репо должен появиться коммит с новой папкой `android/` и переписанным `.github/workflows/android-build.yml` без шага `Install Capacitor build tools`).
+2. Открой **Actions → Android Build → Run workflow** (или сделай Re-run последнего запуска).
+3. Дождись зелёной галочки.
+4. Ссылка: `https://github.com/alexgood11121-create/gotti-stuff-sales-hub/releases/download/latest/gotti-stuff-latest.apk`
 
-3. **Переписать `.github/workflows/android-build.yml`** — минимальный:
-   ```text
-   - checkout
-   - setup-java 17
-   - setup-android SDK 36 + build-tools 36
-   - копируем www/ → android/app/src/main/assets/public/ (на случай изменений)
-   - cd android && ./gradlew --no-daemon assembleDebug
-   - переименовываем APK → gotti-stuff-latest.apk + gotti-stuff-<run>.apk
-   - upload-artifact + release (tag latest + versioned) — как сейчас
-   ```
-   Убираю: setup-node, setup-bun, установку Capacitor, symlink, `cap add`, `cap sync`.
+## План действий с моей стороны
 
-4. **Диагностика** — оставлю `Show build environment` (java, sdkmanager list) и добавлю `./gradlew assembleDebug --stacktrace`, чтобы при следующем падении в логе была точная строка.
+Ничего менять не нужно — фикс уже в коде. Если после нового запуска снова упадёт, пришли скрин **нового** красного шага (не этого старого) — тогда починю по конкретной ошибке.
 
-5. **Обновить `MOBILE.md`** — упомянуть, что `android/` теперь коммитится, и для обновления обёртки надо локально запустить `bunx cap sync android` + закоммитить.
-
-## Результат
-
-После merge и зелёной сборки постоянная ссылка:
-`https://github.com/alexgood11121-create/gotti-stuff-sales-hub/releases/download/latest/gotti-stuff-latest.apk`
-
-## Что мне понадобится от тебя
-
-Ничего. Всё делаю сам после аппрува. Единственное — если в будущем сменишь домен сайта или иконку, скажи, я перегенерирую `android/`.
+Одобри план, если хочешь, чтобы я на всякий случай перепроверил, что в репо действительно попала папка `android/` и новый workflow, и добавил дополнительную диагностику. Иначе просто запусти workflow — этого достаточно.
