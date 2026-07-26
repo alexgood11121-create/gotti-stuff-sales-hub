@@ -406,3 +406,78 @@ function PayDialog({
     </Dialog>
   );
 }
+
+function FreeItemDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onAdd: (name: string, price: number, qty: number) => void }) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [qty, setQty] = useState("1");
+  useEffect(() => { if (open) { setName(""); setPrice(""); setQty("1"); } }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Произвольная позиция</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Название</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, доп. услуга" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Цена</Label>
+              <Input type="number" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
+            </div>
+            <div>
+              <Label>Кол-во</Label>
+              <Input type="number" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
+            </div>
+          </div>
+          <Button
+            className="w-full"
+            onClick={() => {
+              const p = Number(price);
+              const q = Number(qty);
+              if (!name.trim()) { toast.error("Введите название"); return; }
+              if (!p || p <= 0) { toast.error("Цена > 0"); return; }
+              if (!q || q <= 0) { toast.error("Количество > 0"); return; }
+              onAdd(name.trim(), p, q);
+            }}
+          >Добавить в чек</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FreeReceiptDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onAdd: (amount: number) => void }) {
+  const [amount, setAmount] = useState("");
+  useEffect(() => { if (open) setAmount(""); }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Чек суммой</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Сумма чека</Label>
+            <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-12 text-lg" autoFocus />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Корзина будет заменена одной позицией и открыто окно оплаты.
+          </div>
+          <Button
+            className="w-full h-12"
+            onClick={() => {
+              const a = Number(amount);
+              if (!a || a <= 0) { toast.error("Сумма > 0"); return; }
+              onAdd(a);
+            }}
+          >Перейти к оплате</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
