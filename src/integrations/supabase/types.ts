@@ -287,6 +287,54 @@ export type Database = {
           },
         ]
       }
+      shift_schedules: {
+        Row: {
+          branch_id: string | null
+          created_at: string
+          ends_at: string
+          id: string
+          note: string | null
+          starts_at: string
+          updated_at: string
+          worker_id: string
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string
+          ends_at: string
+          id?: string
+          note?: string | null
+          starts_at: string
+          updated_at?: string
+          worker_id: string
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string
+          ends_at?: string
+          id?: string
+          note?: string | null
+          starts_at?: string
+          updated_at?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_schedules_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_schedules_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shifts: {
         Row: {
           branch_id: string | null

@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, Plus, Minus, Search, Package } from "lucide-react";
+import { Trash2, Plus, Minus, Search, Package, PlusCircle, FileText } from "lucide-react";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/pos")({
   ssr: false,
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/pos")({
 
 interface CartLine {
   key: string;
-  product_id: string;
+  product_id: string | null;
   name: string;
   variant_size?: string | null;
   qty: number;
@@ -35,6 +36,8 @@ function POSPage() {
   const [cat, setCat] = useState<string | "all">("all");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [payOpen, setPayOpen] = useState(false);
+  const [freeItemOpen, setFreeItemOpen] = useState(false);
+  const [freeReceiptOpen, setFreeReceiptOpen] = useState(false);
 
   // Кэш каталога
   useEffect(() => {
@@ -109,6 +112,18 @@ function POSPage() {
   }
 
   function clearCart() { setCart([]); }
+
+  function addFreeItem(name: string, price: number, qty: number) {
+    setCart((c) => [...c, {
+      key: `free-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      product_id: null,
+      name,
+      variant_size: null,
+      qty,
+      unit_price: price,
+      cost_price: 0,
+    }]);
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -196,12 +211,36 @@ function POSPage() {
           ))}
         </div>
         <div className="p-3 border-t border-border space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={() => setFreeItemOpen(true)}>
+              <PlusCircle className="w-4 h-4 mr-1" />Позиция
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setFreeReceiptOpen(true)}>
+              <FileText className="w-4 h-4 mr-1" />Чек суммой
+            </Button>
+          </div>
           <Button variant="outline" className="w-full" onClick={clearCart} disabled={!cart.length}>Очистить</Button>
           <Button className="w-full h-14 text-lg font-bold" onClick={() => setPayOpen(true)} disabled={!cart.length}>
             ОПЛАТИТЬ {formatUZS(total)}
           </Button>
         </div>
       </div>
+
+      <FreeItemDialog
+        open={freeItemOpen}
+        onOpenChange={setFreeItemOpen}
+        onAdd={(n, p, q) => { addFreeItem(n, p, q); setFreeItemOpen(false); }}
+      />
+      <FreeReceiptDialog
+        open={freeReceiptOpen}
+        onOpenChange={setFreeReceiptOpen}
+        onAdd={(amount) => {
+          clearCart();
+          addFreeItem("Произвольная продажа", amount, 1);
+          setFreeReceiptOpen(false);
+          setPayOpen(true);
+        }}
+      />
 
       <PayDialog
         open={payOpen}
@@ -367,3 +406,78 @@ function PayDialog({
     </Dialog>
   );
 }
+
+function FreeItemDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onAdd: (name: string, price: number, qty: number) => void }) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [qty, setQty] = useState("1");
+  useEffect(() => { if (open) { setName(""); setPrice(""); setQty("1"); } }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Произвольная позиция</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Название</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, доп. услуга" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Цена</Label>
+              <Input type="number" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
+            </div>
+            <div>
+              <Label>Кол-во</Label>
+              <Input type="number" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
+            </div>
+          </div>
+          <Button
+            className="w-full"
+            onClick={() => {
+              const p = Number(price);
+              const q = Number(qty);
+              if (!name.trim()) { toast.error("Введите название"); return; }
+              if (!p || p <= 0) { toast.error("Цена > 0"); return; }
+              if (!q || q <= 0) { toast.error("Количество > 0"); return; }
+              onAdd(name.trim(), p, q);
+            }}
+          >Добавить в чек</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FreeReceiptDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onAdd: (amount: number) => void }) {
+  const [amount, setAmount] = useState("");
+  useEffect(() => { if (open) setAmount(""); }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Чек суммой</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Сумма чека</Label>
+            <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-12 text-lg" autoFocus />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Корзина будет заменена одной позицией и открыто окно оплаты.
+          </div>
+          <Button
+            className="w-full h-12"
+            onClick={() => {
+              const a = Number(amount);
+              if (!a || a <= 0) { toast.error("Сумма > 0"); return; }
+              onAdd(a);
+            }}
+          >Перейти к оплате</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

@@ -26,7 +26,7 @@ export interface CachedCategory {
 }
 
 export interface PendingSaleItem {
-  product_id: string;
+  product_id: string | null;
   product_name: string;
   variant_size?: string | null;
   qty: number;
