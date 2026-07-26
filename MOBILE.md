@@ -1,13 +1,41 @@
-# Gotti Stuff — Android APK через Capacitor
+# Gotti Stuff — Android APK через GitHub Actions и Capacitor
 
-Web-приложение упаковывается в нативный Android APK. Собирать APK нужно локально (в облаке нет Android SDK).
+Приложение собирается в Android APK автоматически через GitHub Actions. APK — это Android WebView-оболочка, которая открывает опубликованное приложение Gotti Stuff.
+
+## Скачать APK
+
+После успешной сборки APK всегда доступен здесь:
+
+```text
+https://github.com/alexgood11121-create/gotti-stuff-sales-hub/releases/latest
+```
+
+На странице Release скачай файл `gotti-stuff-latest.apk`.
+
+## Как запустить сборку в GitHub
+
+1. Открой репозиторий на GitHub.
+2. Перейди во вкладку **Actions**.
+3. Выбери **Android Build**.
+4. Нажми **Run workflow** или **Re-run jobs**, если сборка уже запускалась.
+5. Дождись зелёной галочки.
+6. Скачай APK по ссылке выше.
+
+## Как приложение работает
+
+- Android-пакет: `com.gottistuff.pos`.
+- Название: `Gotti Stuff`.
+- Приложение открывает сайт: `https://gotti-stuff-sales-hub.lovable.app`.
+- После входа продажи сохраняются локально и синхронизируются, когда интернет появляется снова.
+
+## Локальная сборка, если понадобится
 
 ## Что нужно установить
 
-1. **Node.js 20+** и **bun** (`curl -fsSL https://bun.sh/install | bash`).
+1. **Node.js 22+** и **bun** (`curl -fsSL https://bun.sh/install | bash`).
 2. **Android Studio** (последняя версия): https://developer.android.com/studio.
 3. **JDK 17** — обычно ставится вместе с Android Studio.
-4. При первом запуске Android Studio: SDK Manager → установить `Android SDK Platform 34+`, `Android SDK Build-Tools`, `Android SDK Platform-Tools`.
+4. При первом запуске Android Studio: SDK Manager → установить `Android SDK Platform 36`, `Android SDK Build-Tools`, `Android SDK Platform-Tools`.
 
 ## Первая сборка
 
@@ -16,9 +44,8 @@ Web-приложение упаковывается в нативный Android 
 git clone <твой репозиторий>
 cd <папка-проекта>
 
-# 2. Установи зависимости и собери веб-часть.
+# 2. Установи зависимости.
 bun install
-bun run build
 
 # 3. Добавь Android-платформу (один раз).
 bunx cap add android
@@ -35,7 +62,6 @@ bunx cap open android
 ## После правок в веб-коде
 
 ```bash
-bun run build
 bunx cap sync android
 ```
 
@@ -48,7 +74,7 @@ bunx cap sync android
 
 ## Настройки, которые уже сделаны
 
-- `capacitor.config.ts`: `appId=com.gottistuff.pos`, `appName=Gotti Stuff`, `webDir=dist/client`.
+- `capacitor.config.ts`: `appId=com.gottistuff.pos`, `appName=Gotti Stuff`, `webDir=www`, сайт `https://gotti-stuff-sales-hub.lovable.app`.
 - Приложение работает офлайн (IndexedDB) и синхронизирует продажи при появлении интернета.
 
 ## Иконка и splash screen
