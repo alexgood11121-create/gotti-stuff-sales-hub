@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/pos")({
 
 interface CartLine {
   key: string;
-  product_id: string;
+  product_id: string | null;
   name: string;
   variant_size?: string | null;
   qty: number;
@@ -36,6 +36,8 @@ function POSPage() {
   const [cat, setCat] = useState<string | "all">("all");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [payOpen, setPayOpen] = useState(false);
+  const [freeItemOpen, setFreeItemOpen] = useState(false);
+  const [freeReceiptOpen, setFreeReceiptOpen] = useState(false);
 
   // Кэш каталога
   useEffect(() => {
