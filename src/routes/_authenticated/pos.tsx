@@ -113,6 +113,18 @@ function POSPage() {
 
   function clearCart() { setCart([]); }
 
+  function addFreeItem(name: string, price: number, qty: number) {
+    setCart((c) => [...c, {
+      key: `free-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      product_id: null,
+      name,
+      variant_size: null,
+      qty,
+      unit_price: price,
+      cost_price: 0,
+    }]);
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Каталог */}
@@ -199,12 +211,36 @@ function POSPage() {
           ))}
         </div>
         <div className="p-3 border-t border-border space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={() => setFreeItemOpen(true)}>
+              <PlusCircle className="w-4 h-4 mr-1" />Позиция
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setFreeReceiptOpen(true)}>
+              <FileText className="w-4 h-4 mr-1" />Чек суммой
+            </Button>
+          </div>
           <Button variant="outline" className="w-full" onClick={clearCart} disabled={!cart.length}>Очистить</Button>
           <Button className="w-full h-14 text-lg font-bold" onClick={() => setPayOpen(true)} disabled={!cart.length}>
             ОПЛАТИТЬ {formatUZS(total)}
           </Button>
         </div>
       </div>
+
+      <FreeItemDialog
+        open={freeItemOpen}
+        onOpenChange={setFreeItemOpen}
+        onAdd={(n, p, q) => { addFreeItem(n, p, q); setFreeItemOpen(false); }}
+      />
+      <FreeReceiptDialog
+        open={freeReceiptOpen}
+        onOpenChange={setFreeReceiptOpen}
+        onAdd={(amount) => {
+          clearCart();
+          addFreeItem("Произвольная продажа", amount, 1);
+          setFreeReceiptOpen(false);
+          setPayOpen(true);
+        }}
+      />
 
       <PayDialog
         open={payOpen}
