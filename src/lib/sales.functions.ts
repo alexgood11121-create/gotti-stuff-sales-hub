@@ -12,6 +12,11 @@ const saleItemSchema = z.object({
   total: z.number().nonnegative(),
 });
 
+async function assertAdmin(supabase: any, userId: string) {
+  const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+  if (!data) throw new Error("Только для админа");
+}
+
 const saleSchema = z.object({
   client_uuid: z.string().uuid(),
   total: z.number().nonnegative(),
