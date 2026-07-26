@@ -33,11 +33,20 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
+      - name: Install Capacitor Android library
+        run: |
+          mkdir -p node_modules
+          npm install --no-save --no-package-lock --prefix . \
+            @capacitor/android@8.4.2 \
+            @capacitor/core@8.4.2 \
+            --registry=https://registry.npmjs.org
+          test -d node_modules/@capacitor/android/capacitor || (echo "capacitor-android missing" && exit 1)
+
       - name: Show build environment
         run: |
           node --version
-          npm --version
           java -version
+          ls node_modules/@capacitor || true
           sdkmanager --list_installed | grep -E "platforms;android-36|build-tools;36.0.0|platform-tools" || true
 
       - name: Cache Gradle
@@ -49,46 +58,17 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-gradle-
 
-      - name: Install Capacitor build tools
+      - name: Refresh web assets
         run: |
-          mkdir -p .capacitor-tools
-          cat > .capacitor-tools/package.json <<'JSON'
-          {
-            "private": true,
-            "type": "module",
-            "dependencies": {
-              "@capacitor/android": "8.4.2",
-              "@capacitor/cli": "8.4.2",
-              "@capacitor/core": "8.4.2"
-            }
-          }
-          JSON
-          npm --prefix .capacitor-tools install --omit=dev --no-audit --no-fund --registry=https://registry.npmjs.org
-          rm -rf node_modules
-          ln -s .capacitor-tools/node_modules node_modules
-          ./.capacitor-tools/node_modules/.bin/cap --version
-
-      - name: Ensure www/ exists
-        run: |
-          mkdir -p www
-          if [ ! -f www/index.html ]; then
-            echo "www/index.html missing" && exit 1
-          fi
-
-      - name: Add Android platform if missing
-        run: |
-          if [ ! -d "android" ]; then
-            ./.capacitor-tools/node_modules/.bin/cap add android
-          fi
-
-      - name: Sync Capacitor
-        run: ./.capacitor-tools/node_modules/.bin/cap sync android
+          mkdir -p android/app/src/main/assets/public
+          rm -rf android/app/src/main/assets/public/*
+          cp -R www/. android/app/src/main/assets/public/
 
       - name: Build debug APK
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon assembleDebug
+          ./gradlew --no-daemon assembleDebug --stacktrace
 
       - name: Collect APKs
         run: |
@@ -109,7 +89,6 @@ jobs:
           name: Gotti Stuff (latest)
           files: out/gotti-stuff-latest.apk
           fail_on_unmatched_files: true
-          overwrite_files: true
           make_latest: true
           prerelease: false
 
@@ -121,4 +100,3 @@ jobs:
           files: out/gotti-stuff-${{ github.run_number }}.apk
           fail_on_unmatched_files: true
           prerelease: false
-
