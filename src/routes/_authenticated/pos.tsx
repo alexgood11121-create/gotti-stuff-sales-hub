@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, Plus, Minus, Search, Package } from "lucide-react";
+import { Trash2, Plus, Minus, Search, Package, PlusCircle, FileText } from "lucide-react";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/pos")({
   ssr: false,
