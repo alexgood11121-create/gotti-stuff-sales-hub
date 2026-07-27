@@ -11,8 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, Plus, Minus, Search, Package, PlusCircle, FileText } from "lucide-react";
+import { Trash2, Plus, Minus, Search, Package, PlusCircle, FileText, Bookmark, BookmarkPlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { parkTicket, unparkTicket, deleteParked } from "@/lib/parked";
+import type { ParkedTicket } from "@/lib/db";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export const Route = createFileRoute("/_authenticated/pos")({
   ssr: false,
