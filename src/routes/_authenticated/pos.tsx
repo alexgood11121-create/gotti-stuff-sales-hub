@@ -11,8 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, Plus, Minus, Search, Package, PlusCircle, FileText } from "lucide-react";
+import { Trash2, Plus, Minus, Search, Package, PlusCircle, FileText, Bookmark, BookmarkPlus } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { parkTicket, unparkTicket, deleteParked } from "@/lib/parked";
+import type { ParkedTicket } from "@/lib/db";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export const Route = createFileRoute("/_authenticated/pos")({
   ssr: false,
@@ -112,6 +115,43 @@ function POSPage() {
   }
 
   function clearCart() { setCart([]); }
+
+  const parked = useLiveQuery(() => db.parked.orderBy("created_at").reverse().toArray(), [], [] as ParkedTicket[]);
+  const [parkLabel, setParkLabel] = useState("");
+  const [parkOpen, setParkOpen] = useState(false);
+
+  async function handlePark() {
+    if (!cart.length) return;
+    const items = cart.map((l) => ({
+      product_id: l.product_id,
+      product_name: l.name,
+      variant_size: l.variant_size ?? null,
+      qty: l.qty,
+      unit_price: l.unit_price,
+      cost_price: l.cost_price,
+      total: l.qty * l.unit_price,
+    }));
+    await parkTicket({ label: parkLabel.trim() || `Чек ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`, items, total });
+    setParkLabel("");
+    setParkOpen(false);
+    clearCart();
+    toast.success("Чек отложен");
+  }
+
+  async function handleRestore(t: ParkedTicket) {
+    const ticket = await unparkTicket(t.id);
+    if (!ticket) return;
+    setCart(ticket.items.map((it, idx) => ({
+      key: it.product_id ? `${it.product_id}::${it.variant_size ?? ""}::${idx}` : `restored-${idx}-${Date.now()}`,
+      product_id: it.product_id,
+      name: it.product_name,
+      variant_size: it.variant_size,
+      qty: it.qty,
+      unit_price: it.unit_price,
+      cost_price: it.cost_price,
+    })));
+    toast.success("Чек восстановлен");
+  }
 
   function addFreeItem(name: string, price: number, qty: number) {
     setCart((c) => [...c, {
@@ -219,12 +259,52 @@ function POSPage() {
               <FileText className="w-4 h-4 mr-1" />Чек суммой
             </Button>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Popover open={parkOpen} onOpenChange={setParkOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!cart.length}>
+                  <BookmarkPlus className="w-4 h-4 mr-1" />Отложить
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 space-y-2">
+                <Label className="text-xs">Метка (клиент/стол)</Label>
+                <Input value={parkLabel} onChange={(e) => setParkLabel(e.target.value)} placeholder="Стол 3 / Иван" autoFocus />
+                <Button className="w-full" size="sm" onClick={handlePark}>Сохранить</Button>
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="relative">
+                  <Bookmark className="w-4 h-4 mr-1" />Отложенные
+                  {(parked?.length ?? 0) > 0 && (
+                    <span className="ml-1 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5">{parked!.length}</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 max-h-80 overflow-y-auto p-2 space-y-1">
+                {(parked?.length ?? 0) === 0 ? (
+                  <div className="text-xs text-muted-foreground text-center py-4">Нет отложенных чеков</div>
+                ) : parked!.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+                    <button onClick={() => handleRestore(t)} className="flex-1 text-left">
+                      <div className="text-sm font-medium">{t.label}</div>
+                      <div className="text-xs text-muted-foreground">{formatUZS(t.total)} · {new Date(t.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</div>
+                    </button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteParked(t.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </div>
           <Button variant="outline" className="w-full" onClick={clearCart} disabled={!cart.length}>Очистить</Button>
           <Button className="w-full h-14 text-lg font-bold" onClick={() => setPayOpen(true)} disabled={!cart.length}>
             ОПЛАТИТЬ {formatUZS(total)}
           </Button>
         </div>
       </div>
+
 
       <FreeItemDialog
         open={freeItemOpen}
@@ -294,10 +374,10 @@ function PayDialog({
   useEffect(() => {
     if (open) {
       setMethod("cash");
-      setCash("");
+      setCash(String(total));
       setCard("");
     }
-  }, [open]);
+  }, [open, total]);
 
   const cashNum = Number(cash) || 0;
 

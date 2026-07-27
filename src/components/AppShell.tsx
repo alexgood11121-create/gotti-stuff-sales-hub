@@ -26,7 +26,15 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { startShift, endShift, getMyOpenShift } from "@/lib/shifts.functions";
+import { startShift, endShift, getMyOpenShift, getExpectedCash } from "@/lib/shifts.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Item {
   to: string;
@@ -180,23 +188,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               openShift={openShift}
               busy={shiftBusy}
               tick={tick}
-              onToggle={async () => {
-                setShiftBusy(true);
-                try {
-                  if (openShift) {
-                    await endShift();
-                    toast.success("Смена закрыта");
-                  } else {
-                    await startShift({ data: { branch_id: profile?.branch_id ?? null } });
-                    toast.success("Смена открыта");
-                  }
-                  await loadShift();
-                } catch (e: any) {
-                  toast.error(e.message ?? "Ошибка");
-                } finally {
-                  setShiftBusy(false);
-                }
-              }}
+              branchId={profile?.branch_id ?? null}
+              onOpened={async () => { await loadShift(); }}
+              onClosed={async () => { await loadShift(); }}
+              setBusy={setShiftBusy}
             />
           )}
           <Button
@@ -220,19 +215,29 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function ShiftControl({
-  openShift, busy, tick, onToggle,
+  openShift, busy, tick, branchId, onOpened, onClosed, setBusy,
 }: {
   openShift: { id: string; started_at: string } | null;
   busy: boolean;
   tick: number;
-  onToggle: () => void;
+  branchId: string | null;
+  onOpened: () => Promise<void>;
+  onClosed: () => Promise<void>;
+  setBusy: (v: boolean) => void;
 }) {
   void tick;
+  const [openDlg, setOpenDlg] = useState(false);
+  const [closeDlg, setCloseDlg] = useState(false);
+  const [opening, setOpening] = useState("");
+  const [actual, setActual] = useState("");
+  const [expected, setExpected] = useState<{ expected: number; opening: number; cashSales: number } | null>(null);
+
   const mins = openShift
     ? Math.max(0, Math.floor((Date.now() - new Date(openShift.started_at).getTime()) / 60000))
     : 0;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
+
   return (
     <div className="rounded-md border border-sidebar-border p-2 space-y-1">
       <div className="flex items-center justify-between text-xs">
@@ -247,11 +252,112 @@ function ShiftControl({
         size="sm"
         variant={openShift ? "destructive" : "default"}
         className="w-full h-8 text-xs"
-        onClick={onToggle}
         disabled={busy}
+        onClick={async () => {
+          if (openShift) {
+            try {
+              const e = await getExpectedCash();
+              setExpected(e);
+              setActual(String(e.expected));
+            } catch { setExpected(null); setActual(""); }
+            setCloseDlg(true);
+          } else {
+            setOpening("0");
+            setOpenDlg(true);
+          }
+        }}
       >
         {openShift ? (<><Square className="w-3 h-3 mr-1" />Закрыть смену</>) : (<><Play className="w-3 h-3 mr-1" />Открыть смену</>)}
       </Button>
+
+      <Dialog open={openDlg} onOpenChange={setOpenDlg}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Открытие смены</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Остаток наличных в кассе</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={opening}
+                onChange={(e) => setOpening(e.target.value)}
+                autoFocus
+                className="h-12 text-lg"
+              />
+            </div>
+            <Button
+              className="w-full h-11"
+              disabled={busy}
+              onClick={async () => {
+                const v = Number(opening);
+                if (Number.isNaN(v) || v < 0) { toast.error("Введите сумму"); return; }
+                setBusy(true);
+                try {
+                  await startShift({ data: { branch_id: branchId, opening_cash: v } });
+                  toast.success("Смена открыта");
+                  setOpenDlg(false);
+                  await onOpened();
+                } catch (e: any) {
+                  toast.error(e.message ?? "Ошибка");
+                } finally { setBusy(false); }
+              }}
+            >Открыть смену</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={closeDlg} onOpenChange={setCloseDlg}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Закрытие смены</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            {expected && (
+              <div className="space-y-1 rounded-md bg-muted/40 p-3">
+                <div className="flex justify-between"><span>Остаток при открытии</span><span>{expected.opening.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Продажи наличными</span><span>{expected.cashSales.toLocaleString()}</span></div>
+                <div className="flex justify-between font-semibold border-t border-border pt-1"><span>Ожидается в кассе</span><span>{expected.expected.toLocaleString()}</span></div>
+              </div>
+            )}
+            <div>
+              <Label>Фактически в кассе</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={actual}
+                onChange={(e) => setActual(e.target.value)}
+                autoFocus
+                className="h-12 text-lg"
+              />
+            </div>
+            {expected && actual !== "" && (
+              <div className={cn(
+                "text-sm text-center",
+                Number(actual) - expected.expected === 0 ? "text-primary"
+                  : Number(actual) - expected.expected < 0 ? "text-destructive" : "text-yellow-500",
+              )}>
+                Расхождение: {(Number(actual) - expected.expected).toLocaleString()}
+              </div>
+            )}
+            <Button
+              variant="destructive"
+              className="w-full h-11"
+              disabled={busy}
+              onClick={async () => {
+                const v = Number(actual);
+                if (Number.isNaN(v) || v < 0) { toast.error("Введите сумму"); return; }
+                setBusy(true);
+                try {
+                  await endShift({ data: { closing_cash_actual: v } });
+                  toast.success("Смена закрыта");
+                  setCloseDlg(false);
+                  await onClosed();
+                } catch (e: any) {
+                  toast.error(e.message ?? "Ошибка");
+                } finally { setBusy(false); }
+              }}
+            >Закрыть смену</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

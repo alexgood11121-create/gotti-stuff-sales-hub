@@ -1,178 +1,205 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
-import { formatUZS, formatDate, today } from "@/lib/format";
-import { useAuth } from "@/lib/auth-hooks";
-import { Bell, Store, TrendingUp, Wallet, CreditCard, Banknote } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { listShifts, getShiftDetails } from "@/lib/shifts.functions";
+import { useState } from "react";
+import { AppShell } from "@/components/AppShell";
+import { formatUZS } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   ssr: false,
-  component: AdminDash,
+  component: AdminDashboard,
 });
 
-function AdminDash() {
-  const { role } = useAuth();
-  const [byBranch, setByBranch] = useState<any[]>([]);
-  const [byMethod, setByMethod] = useState<any[]>([]);
-  const [totals, setTotals] = useState({ revenue: 0, count: 0, cash: 0, card: 0 });
-  const [notifs, setNotifs] = useState<any[]>([]);
-  const [byDay, setByDay] = useState<any[]>([]);
+function AdminDashboard() {
+  const [selected, setSelected] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (role !== "admin") return;
-    load();
-    const ch = supabase
-      .channel("dash-notif")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [role]);
+  const shiftsQ = useQuery({
+    queryKey: ["admin-shifts-list"],
+    queryFn: () => listShifts({ data: { limit: 100 } }),
+    refetchInterval: 30000,
+  });
 
-  async function load() {
-    const { from, to } = today();
-    const { data: sales } = await supabase
-      .from("sales")
-      .select("total,cash_amount,card_amount,payment_method,branch_id,branches(name),created_at")
-      .gte("created_at", from).lte("created_at", to);
-    const revenue = (sales ?? []).reduce((s, x: any) => s + Number(x.total), 0);
-    const cash = (sales ?? []).reduce((s, x: any) => s + Number(x.cash_amount ?? 0), 0);
-    const card = (sales ?? []).reduce((s, x: any) => s + Number(x.card_amount ?? 0), 0);
-    setTotals({ revenue, count: sales?.length ?? 0, cash, card });
+  const detailsQ = useQuery({
+    queryKey: ["admin-shift-details", selected],
+    queryFn: () => getShiftDetails({ data: { id: selected! } }),
+    enabled: !!selected,
+  });
 
-    const branchMap = new Map<string, number>();
-    (sales ?? []).forEach((s: any) => {
-      const key = s.branches?.name ?? "Без филиала";
-      branchMap.set(key, (branchMap.get(key) ?? 0) + Number(s.total));
-    });
-    setByBranch(Array.from(branchMap, ([name, value]) => ({ name, value })));
-
-    setByMethod([
-      { name: "Наличные", value: cash },
-      { name: "Карта", value: card },
-    ]);
-
-    const week = new Date();
-    week.setDate(week.getDate() - 6);
-    week.setHours(0, 0, 0, 0);
-    const { data: w } = await supabase.from("sales").select("created_at,total").gte("created_at", week.toISOString());
-    const map = new Map<string, number>();
-    (w ?? []).forEach((s: any) => {
-      const d = new Date(s.created_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
-      map.set(d, (map.get(d) ?? 0) + Number(s.total));
-    });
-    setByDay(Array.from(map, ([day, value]) => ({ day, value })));
-
-    const { data: n } = await supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(20);
-    setNotifs(n ?? []);
-  }
-
-  async function markRead(id: string) {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    load();
-  }
-
-  if (role !== "admin") {
-    return <div className="p-6 text-muted-foreground">Только для админа</div>;
-  }
-
-  const colors = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)", "var(--color-chart-4)"];
+  const shifts = shiftsQ.data ?? [];
+  const openNow = shifts.filter((s: any) => !s.ended_at);
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const today = shifts.filter((s: any) => (s.started_at as string).slice(0, 10) === todayISO);
+  const todayTotal = today.reduce((sum: number, s: any) => sum + Number(s.stats?.total ?? 0), 0);
+  const todayCash = today.reduce((sum: number, s: any) => sum + Number(s.stats?.cash ?? 0), 0);
+  const todayCard = today.reduce((sum: number, s: any) => sum + Number(s.stats?.card ?? 0), 0);
 
   return (
-    <div className="p-6 h-screen overflow-auto space-y-4">
-      <h1 className="text-2xl font-bold">Дашборд — сегодня</h1>
+    <AppShell>
+      <div className="p-6 h-screen overflow-y-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Дашборд</h1>
+          <p className="text-sm text-muted-foreground">Смены и продажи</p>
+        </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat icon={<TrendingUp />} label="Выручка" value={formatUZS(totals.revenue)} />
-        <Stat icon={<Wallet />} label="Чеков" value={String(totals.count)} />
-        <Stat icon={<Banknote />} label="Наличные" value={formatUZS(totals.cash)} />
-        <Stat icon={<CreditCard />} label="Карта" value={formatUZS(totals.card)} />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Kpi title="Открытых смен" value={String(openNow.length)} icon={<Clock className="w-5 h-5" />} />
+          <Kpi title="Сегодня выручка" value={formatUZS(todayTotal)} icon={<TrendingUp className="w-5 h-5" />} />
+          <Kpi title="Сегодня наличные" value={formatUZS(todayCash)} icon={<Banknote className="w-5 h-5" />} />
+          <Kpi title="Сегодня карта" value={formatUZS(todayCard)} icon={<CreditCard className="w-5 h-5" />} />
+        </div>
+
+        {openNow.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold mb-2">Открыты сейчас</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {openNow.map((s: any) => (
+                <ShiftCard key={s.id} s={s} onOpen={() => setSelected(s.id)} live />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section>
+          <h2 className="text-lg font-semibold mb-2">История смен</h2>
+          {shiftsQ.isLoading ? (
+            <div className="text-muted-foreground text-sm">Загрузка...</div>
+          ) : shifts.length === 0 ? (
+            <div className="text-muted-foreground text-sm">Смен нет</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {shifts.filter((s: any) => s.ended_at).map((s: any) => (
+                <ShiftCard key={s.id} s={s} onOpen={() => setSelected(s.id)} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="pt-2">
+          <Link to="/admin/shifts"><Button variant="outline">Управление сменами и графиком</Button></Link>
+        </div>
       </div>
 
-      <Tabs defaultValue="charts">
-        <TabsList>
-          <TabsTrigger value="charts">Аналитика</TabsTrigger>
-          <TabsTrigger value="notif">
-            <Bell className="w-4 h-4 mr-1" />Уведомления
-            {notifs.filter((n) => !n.is_read).length > 0 && (
-              <span className="ml-1 bg-destructive text-destructive-foreground text-xs rounded-full px-1.5">
-                {notifs.filter((n) => !n.is_read).length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="charts" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2"><Store className="w-4 h-4" />По филиалам (сегодня)</h3>
-              <div className="h-56">
-                <ResponsiveContainer>
-                  <BarChart data={byBranch}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="name" stroke="#888" />
-                    <YAxis stroke="#888" tickFormatter={(v) => v / 1000 + "k"} />
-                    <Tooltip formatter={(v: any) => formatUZS(v)} contentStyle={{ background: "#222", border: "1px solid #333" }} />
-                    <Bar dataKey="value" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelected(null)}>
+          <div className="bg-card border border-border rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-bold">Смена</h3>
+                {detailsQ.data && (
+                  <p className="text-sm text-muted-foreground">
+                    {detailsQ.data.cashier?.nickname ?? detailsQ.data.cashier?.email ?? "—"}
+                    {detailsQ.data.branch && <> · {detailsQ.data.branch.name}</>}
+                  </p>
+                )}
               </div>
-            </Card>
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3">Способ оплаты</h3>
-              <div className="h-56">
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie data={byMethod} dataKey="value" nameKey="name" outerRadius={80} label={(e: any) => e.name}>
-                      {byMethod.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
-                    </Pie>
-                    <Legend />
-                    <Tooltip formatter={(v: any) => formatUZS(v)} contentStyle={{ background: "#222", border: "1px solid #333" }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          </div>
-          <Card className="p-4">
-            <h3 className="font-semibold mb-3">Продажи за 7 дней</h3>
-            <div className="h-64">
-              <ResponsiveContainer>
-                <BarChart data={byDay}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="day" stroke="#888" />
-                  <YAxis stroke="#888" tickFormatter={(v) => v / 1000 + "k"} />
-                  <Tooltip formatter={(v: any) => formatUZS(v)} contentStyle={{ background: "#222", border: "1px solid #333" }} />
-                  <Bar dataKey="value" fill="var(--color-chart-2)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <Button size="icon" variant="ghost" onClick={() => setSelected(null)}><X className="w-4 h-4" /></Button>
             </div>
-          </Card>
-        </TabsContent>
+            {!detailsQ.data ? (
+              <div className="text-sm text-muted-foreground">Загрузка...</div>
+            ) : (
+              <ShiftDetail data={detailsQ.data} />
+            )}
+          </div>
+        </div>
+      )}
+    </AppShell>
+  );
+}
 
-        <TabsContent value="notif" className="space-y-2">
-          {notifs.length === 0 && <div className="text-muted-foreground">Нет уведомлений</div>}
-          {notifs.map((n) => (
-            <Card key={n.id} className={`p-4 ${!n.is_read ? "border-primary" : ""}`} onClick={() => !n.is_read && markRead(n.id)}>
-              <div className="flex justify-between">
-                <div className="font-semibold">{n.title}</div>
-                <div className="text-xs text-muted-foreground">{formatDate(n.created_at)}</div>
-              </div>
-              <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans mt-2">{n.body}</pre>
-            </Card>
-          ))}
-        </TabsContent>
-      </Tabs>
+function Kpi({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
+  return (
+    <div className="bg-card border border-border rounded-lg p-4">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span className="text-xs">{title}</span>
+        {icon}
+      </div>
+      <div className="mt-1 text-xl font-bold">{value}</div>
     </div>
   );
 }
 
-function Stat({ icon, label, value }: any) {
+function ShiftCard({ s, onOpen, live }: { s: any; onOpen: () => void; live?: boolean }) {
+  const h = Math.floor((s.duration_minutes ?? 0) / 60);
+  const m = (s.duration_minutes ?? 0) % 60;
   return (
-    <Card className="p-4">
-      <div className="flex items-center gap-2 text-muted-foreground text-xs">{icon}{label}</div>
-      <div className="text-2xl font-bold mt-1">{value}</div>
-    </Card>
+    <button onClick={onOpen} className="text-left bg-card border border-border hover:border-primary rounded-lg p-4 transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="font-semibold">{s.cashier?.nickname ?? s.cashier?.email ?? "—"}</div>
+        {live && <span className="text-xs bg-primary/20 text-primary rounded-full px-2 py-0.5">открыта</span>}
+      </div>
+      <div className="text-xs text-muted-foreground mt-1">
+        {s.branch?.name ?? "Без филиала"} · {new Date(s.started_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+        {s.ended_at && <> — {new Date(s.ended_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</>}
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+        <div><div className="text-[10px] text-muted-foreground">Выручка</div><div className="font-semibold">{formatUZS(s.stats?.total ?? 0)}</div></div>
+        <div><div className="text-[10px] text-muted-foreground">Нал</div><div>{formatUZS(s.stats?.cash ?? 0)}</div></div>
+        <div><div className="text-[10px] text-muted-foreground">Карта</div><div>{formatUZS(s.stats?.card ?? 0)}</div></div>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+        <span>{h}ч {m}м · {s.stats?.count ?? 0} чек.</span>
+        {s.cash_diff !== null && s.cash_diff !== undefined && (
+          <span className={cn(
+            Number(s.cash_diff) === 0 ? "text-primary" : Number(s.cash_diff) < 0 ? "text-destructive" : "text-yellow-500",
+          )}>
+            расхожд.: {formatUZS(Number(s.cash_diff))}
+          </span>
+        )}
+        <ArrowRight className="w-3 h-3" />
+      </div>
+    </button>
+  );
+}
+
+function ShiftDetail({ data }: { data: any }) {
+  const { shift, stats, sales } = data;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+        <Info label="Открытие" value={new Date(shift.started_at).toLocaleString("ru-RU")} />
+        <Info label="Закрытие" value={shift.ended_at ? new Date(shift.ended_at).toLocaleString("ru-RU") : "открыта"} />
+        <Info label="Остаток при открытии" value={formatUZS(shift.opening_cash ?? 0)} />
+        <Info label="Продажи наличными" value={formatUZS(stats.cash)} />
+        <Info label="Продажи картой" value={formatUZS(stats.card)} />
+        <Info label="Ожидалось в кассе" value={shift.closing_cash_expected != null ? formatUZS(shift.closing_cash_expected) : "—"} />
+        <Info label="Фактически" value={shift.closing_cash_actual != null ? formatUZS(shift.closing_cash_actual) : "—"} />
+        <Info label="Расхождение" value={shift.cash_diff != null ? formatUZS(shift.cash_diff) : "—"} />
+      </div>
+      <div>
+        <h4 className="font-semibold mb-2">Продажи ({sales.length})</h4>
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {sales.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Продаж нет</div>
+          ) : sales.map((s: any) => (
+            <div key={s.id} className="bg-muted/30 rounded-md p-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {new Date(s.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                  {" · "}{s.payment_method}
+                </span>
+                <span className="font-semibold">{formatUZS(s.total)}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {(s.sale_items ?? []).map((i: any, idx: number) => (
+                  <span key={idx}>{i.product_name}{i.variant_size ? ` (${i.variant_size})` : ""} × {i.qty}{idx < s.sale_items.length - 1 ? ", " : ""}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-muted/30 rounded-md p-2">
+      <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
+      <div className="font-medium">{value}</div>
+    </div>
   );
 }

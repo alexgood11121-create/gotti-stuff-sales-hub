@@ -101,6 +101,47 @@ export type Database = {
           },
         ]
       }
+      parked_sales: {
+        Row: {
+          branch_id: string | null
+          cashier_id: string
+          created_at: string
+          id: string
+          items: Json
+          label: string | null
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          cashier_id: string
+          created_at?: string
+          id?: string
+          items?: Json
+          label?: string | null
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          cashier_id?: string
+          created_at?: string
+          id?: string
+          items?: Json
+          label?: string | null
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parked_sales_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string | null
@@ -338,29 +379,41 @@ export type Database = {
       shifts: {
         Row: {
           branch_id: string | null
+          cash_diff: number | null
           cashier_id: string
+          closing_cash_actual: number | null
+          closing_cash_expected: number | null
           created_at: string
           ended_at: string | null
           id: string
           note: string | null
+          opening_cash: number
           started_at: string
         }
         Insert: {
           branch_id?: string | null
+          cash_diff?: number | null
           cashier_id: string
+          closing_cash_actual?: number | null
+          closing_cash_expected?: number | null
           created_at?: string
           ended_at?: string | null
           id?: string
           note?: string | null
+          opening_cash?: number
           started_at?: string
         }
         Update: {
           branch_id?: string | null
+          cash_diff?: number | null
           cashier_id?: string
+          closing_cash_actual?: number | null
+          closing_cash_expected?: number | null
           created_at?: string
           ended_at?: string | null
           id?: string
           note?: string | null
+          opening_cash?: number
           started_at?: string
         }
         Relationships: [
