@@ -26,7 +26,15 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { startShift, endShift, getMyOpenShift } from "@/lib/shifts.functions";
+import { startShift, endShift, getMyOpenShift, getExpectedCash } from "@/lib/shifts.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Item {
   to: string;
