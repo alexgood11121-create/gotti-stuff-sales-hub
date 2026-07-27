@@ -28,9 +28,9 @@ const saleSchema = z.object({
 export type SaleInput = z.infer<typeof saleSchema>;
 
 async function currentUser() {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Не авторизован");
-  return data.user;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user) throw new Error("Не авторизован");
+  return data.session.user;
 }
 
 async function assertAdmin(userId: string) {

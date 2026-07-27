@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { getOfflineAuthState } from "@/lib/offline-auth";
 
 export type AppRole = "admin" | "cashier";
 
@@ -31,27 +32,39 @@ export function useAuth(): AuthState {
 
     async function load(user: User | null) {
       if (!user) {
-        if (!cancelled) setState({ user: null, role: null, profile: null, loading: false });
+        const offline = await getOfflineAuthState();
+        if (!cancelled) {
+          setState(offline ? { ...offline, loading: false } : { user: null, role: null, profile: null, loading: false });
+        }
         return;
       }
       const [{ data: roleRows }, { data: prof }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", user.id),
         supabase.from("profiles").select("id,nickname,email,branch_id").eq("id", user.id).maybeSingle(),
-      ]);
+      ]).catch(async () => {
+        const offline = await getOfflineAuthState();
+        if (!cancelled) {
+          setState(offline ? { ...offline, loading: false } : { user, role: null, profile: null, loading: false });
+        }
+        return [{ data: null }, { data: null }] as const;
+      });
       if (cancelled) return;
       const role = (roleRows?.[0]?.role as AppRole) ?? null;
       setState({ user, role, profile: prof as Profile | null, loading: false });
     }
 
-    supabase.auth.getUser().then(({ data }) => load(data.user));
+    supabase.auth.getSession().then(({ data }) => load(data.session?.user ?? null)).catch(() => load(null));
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
         load(session?.user ?? null);
       }
     });
+    const reloadOffline = () => { void load(null); };
+    window.addEventListener("gotti-offline-auth", reloadOffline);
     return () => {
       cancelled = true;
+      window.removeEventListener("gotti-offline-auth", reloadOffline);
       sub.subscription.unsubscribe();
     };
   }, []);

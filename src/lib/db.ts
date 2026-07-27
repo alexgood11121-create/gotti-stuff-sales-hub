@@ -60,11 +60,23 @@ export interface ParkedTicket {
   created_at: string;
 }
 
+export interface CachedAuthUser {
+  id: string;
+  email: string;
+  nickname: string | null;
+  role: "admin" | "cashier";
+  branch_id: string | null;
+  password_salt: string;
+  password_hash: string;
+  updated_at: string;
+}
+
 class GottiDB extends Dexie {
   products!: Table<CachedProduct, string>;
   categories!: Table<CachedCategory, string>;
   pendingSales!: Table<PendingSale, string>;
   parked!: Table<ParkedTicket, string>;
+  authUsers!: Table<CachedAuthUser, string>;
 
   constructor() {
     super("gotti-stuff-db");
@@ -83,6 +95,13 @@ class GottiDB extends Dexie {
       categories: "id, name",
       pendingSales: "client_uuid, synced, created_at",
       parked: "id, created_at",
+    });
+    this.version(4).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+      parked: "id, created_at",
+      authUsers: "id, email, nickname, role",
     });
   }
 }

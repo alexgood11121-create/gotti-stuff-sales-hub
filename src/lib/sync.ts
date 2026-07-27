@@ -1,6 +1,7 @@
 import { db, type PendingSale } from "./db";
 import { submitSale } from "@/lib/sales.functions";
 import { v4 as uuidv4 } from "uuid";
+import { ensureOnlineBackendSession } from "@/lib/offline-auth";
 
 export async function queueSaleOffline(payload: Omit<PendingSale, "client_uuid" | "created_at" | "synced" | "attempts"> & { client_uuid?: string }) {
   const client_uuid = payload.client_uuid ?? uuidv4();
@@ -24,6 +25,8 @@ export async function syncPendingSales(): Promise<{ synced: number; failed: numb
   let synced = 0;
   let failed = 0;
   try {
+    const hasSession = await ensureOnlineBackendSession();
+    if (!hasSession) return { synced: 0, failed: 0 };
     const pending = await db.pendingSales.where("synced").equals(0).toArray();
     for (const s of pending) {
       try {

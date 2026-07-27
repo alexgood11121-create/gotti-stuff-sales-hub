@@ -2,9 +2,9 @@
 import { supabase } from "@/integrations/supabase/client";
 
 async function currentUserId(): Promise<string> {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Не авторизован");
-  return data.user.id;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user) throw new Error("Не авторизован");
+  return data.session.user.id;
 }
 
 export const startShift = async ({
