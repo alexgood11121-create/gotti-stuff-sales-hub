@@ -49,7 +49,7 @@ function ExpensePage() {
       </div>
       <div className="space-y-2">
         {visibleItems.length === 0 && <div className="text-muted-foreground">Нет операций</div>}
-        {visibleItems.map((m) => (
+        {visibleItems.map((m: any) => (
           <Card key={m.id} className="p-4 flex justify-between items-center">
             <div>
               <div className="font-medium">{m.note || "Расход"}</div>

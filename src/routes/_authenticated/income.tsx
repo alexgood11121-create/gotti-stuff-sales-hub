@@ -61,7 +61,7 @@ function IncomePage() {
       </div>
       <div className="space-y-2">
         {visibleItems.length === 0 && <div className="text-muted-foreground">Нет операций</div>}
-        {visibleItems.map((m) => (
+        {visibleItems.map((m: any) => (
           <Card key={m.id} className="p-4 flex justify-between items-center">
             <div>
               <div className="font-medium">{m.products?.name ?? m.product_name ?? m.note}</div>
@@ -69,7 +69,7 @@ function IncomePage() {
             </div>
             <div className="text-right">
               <div className="font-bold">+{m.qty} шт</div>
-              <div className="text-sm text-muted-foreground">{formatUZS((m.qty ?? 0) * Number(m.cost_price ?? 0))}</div>
+              <div className="text-sm text-muted-foreground">{formatUZS((m.qty ?? 0) * Number(m.unit_price ?? 0))}</div>
             </div>
           </Card>
         ))}
