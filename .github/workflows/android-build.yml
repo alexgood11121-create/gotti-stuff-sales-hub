@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - uses: android-actions/setup-android@v3
 
@@ -88,6 +88,7 @@ jobs:
           tag_name: latest
           name: Gotti Stuff (latest)
           files: out/gotti-stuff-latest.apk
+          overwrite_files: true
           fail_on_unmatched_files: true
           make_latest: true
           prerelease: false
