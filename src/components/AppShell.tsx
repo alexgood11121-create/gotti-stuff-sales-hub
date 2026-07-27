@@ -188,23 +188,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               openShift={openShift}
               busy={shiftBusy}
               tick={tick}
-              onToggle={async () => {
-                setShiftBusy(true);
-                try {
-                  if (openShift) {
-                    await endShift();
-                    toast.success("Смена закрыта");
-                  } else {
-                    await startShift({ data: { branch_id: profile?.branch_id ?? null } });
-                    toast.success("Смена открыта");
-                  }
-                  await loadShift();
-                } catch (e: any) {
-                  toast.error(e.message ?? "Ошибка");
-                } finally {
-                  setShiftBusy(false);
-                }
-              }}
+              branchId={profile?.branch_id ?? null}
+              onOpened={async () => { await loadShift(); }}
+              onClosed={async () => { await loadShift(); }}
+              setBusy={setShiftBusy}
             />
           )}
           <Button
