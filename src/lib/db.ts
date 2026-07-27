@@ -47,15 +47,24 @@ export interface PendingSale {
   payment_method: "cash" | "card" | "mixed";
   items: PendingSaleItem[];
   created_at: string;
-  synced: number; // 0 = pending, 1 = synced (Dexie doesn't index boolean)
+  synced: number;
   attempts: number;
   last_error?: string;
+}
+
+export interface ParkedTicket {
+  id: string;
+  label: string;
+  items: PendingSaleItem[];
+  total: number;
+  created_at: string;
 }
 
 class GottiDB extends Dexie {
   products!: Table<CachedProduct, string>;
   categories!: Table<CachedCategory, string>;
   pendingSales!: Table<PendingSale, string>;
+  parked!: Table<ParkedTicket, string>;
 
   constructor() {
     super("gotti-stuff-db");
@@ -68,6 +77,12 @@ class GottiDB extends Dexie {
       products: "id, name, category_id, is_active, sales_count",
       categories: "id, name",
       pendingSales: "client_uuid, synced, created_at",
+    });
+    this.version(3).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+      parked: "id, created_at",
     });
   }
 }
