@@ -126,16 +126,13 @@ const router = createRouter({
   defaultPreloadStaleTime: 0,
 });
 
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}
+// НЕ регистрируем этот роутер как глобальный тип — иначе перекроет routeTree.gen.ts
+// и весь основной проект перестанет типизироваться.
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <RouterProvider router={router as any} />
     </QueryClientProvider>
   </React.StrictMode>,
 );
