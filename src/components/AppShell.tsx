@@ -129,7 +129,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   const visibleItems = items.filter((i) => !i.adminOnly || role === "admin");
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <div
+        className={cn(
+          "w-full flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-semibold",
+          online
+            ? "bg-primary/15 text-primary"
+            : "bg-destructive text-destructive-foreground",
+        )}
+      >
+        {online ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+        <span>{online ? "Онлайн — есть интернет" : "Офлайн — нет интернета"}</span>
+        {(pendingCount ?? 0) > 0 && (
+          <span className="ml-2 opacity-80">· ожидает синхронизации: {pendingCount}</span>
+        )}
+      </div>
+      <div className="flex flex-1 min-h-0">
       <aside className="w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
         <div className="px-5 py-5 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
@@ -212,6 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="flex-1 overflow-hidden">{children}</main>
+      </div>
     </div>
   );
 }
