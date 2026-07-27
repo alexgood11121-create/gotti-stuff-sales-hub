@@ -259,12 +259,52 @@ function POSPage() {
               <FileText className="w-4 h-4 mr-1" />Чек суммой
             </Button>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Popover open={parkOpen} onOpenChange={setParkOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!cart.length}>
+                  <BookmarkPlus className="w-4 h-4 mr-1" />Отложить
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 space-y-2">
+                <Label className="text-xs">Метка (клиент/стол)</Label>
+                <Input value={parkLabel} onChange={(e) => setParkLabel(e.target.value)} placeholder="Стол 3 / Иван" autoFocus />
+                <Button className="w-full" size="sm" onClick={handlePark}>Сохранить</Button>
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="relative">
+                  <Bookmark className="w-4 h-4 mr-1" />Отложенные
+                  {(parked?.length ?? 0) > 0 && (
+                    <span className="ml-1 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5">{parked!.length}</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 max-h-80 overflow-y-auto p-2 space-y-1">
+                {(parked?.length ?? 0) === 0 ? (
+                  <div className="text-xs text-muted-foreground text-center py-4">Нет отложенных чеков</div>
+                ) : parked!.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+                    <button onClick={() => handleRestore(t)} className="flex-1 text-left">
+                      <div className="text-sm font-medium">{t.label}</div>
+                      <div className="text-xs text-muted-foreground">{formatUZS(t.total)} · {new Date(t.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</div>
+                    </button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteParked(t.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </div>
           <Button variant="outline" className="w-full" onClick={clearCart} disabled={!cart.length}>Очистить</Button>
           <Button className="w-full h-14 text-lg font-bold" onClick={() => setPayOpen(true)} disabled={!cart.length}>
             ОПЛАТИТЬ {formatUZS(total)}
           </Button>
         </div>
       </div>
+
 
       <FreeItemDialog
         open={freeItemOpen}
