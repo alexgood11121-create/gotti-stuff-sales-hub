@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:capacitor": "vite build --config vite.capacitor.config.ts",
+    "build:capacitor": "vite build --config vite.capacitor.config.ts && node -e \"require('fs').renameSync('www/capacitor.html','www/index.html')\"",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."
