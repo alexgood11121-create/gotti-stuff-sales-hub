@@ -1,5 +1,5 @@
 import { db, type PendingSale } from "./db";
-import { submitSale } from "./sales.functions";
+import { submitSale } from "@/lib/sales.functions";
 import { v4 as uuidv4 } from "uuid";
 
 export async function queueSaleOffline(payload: Omit<PendingSale, "client_uuid" | "created_at" | "synced" | "attempts"> & { client_uuid?: string }) {
