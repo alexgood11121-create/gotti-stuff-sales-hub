@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { startShift, endShift, getMyOpenShift, getExpectedCash } from "@/lib/shifts.functions";
+import { clearOfflineAuth } from "@/lib/offline-auth";
 import {
   Dialog,
   DialogContent,
@@ -198,6 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             variant="ghost"
             className="w-full justify-start text-sm"
             onClick={async () => {
+              await clearOfflineAuth();
               await supabase.auth.signOut();
               navigate({ to: "/auth" });
             }}

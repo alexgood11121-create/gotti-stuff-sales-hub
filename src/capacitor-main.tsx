@@ -16,6 +16,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
+import { getOfflineAuthState } from "@/lib/offline-auth";
 
 // Импортируем страницы — берём компонент из .options
 import { Route as AuthFileRoute } from "@/routes/auth";
@@ -42,7 +43,8 @@ const rootRoute = createRootRoute({
 // Гейт авторизации: при заходе на защищённую страницу проверяем сессию.
 async function requireAuth({ location }: { location: { pathname: string } }) {
   const { data } = await supabase.auth.getSession();
-  if (!data.session) {
+  const offline = await getOfflineAuthState();
+  if (!data.session && !offline) {
     throw redirect({
       to: "/auth",
       search: { next: location.pathname === "/auth" ? undefined : location.pathname },
@@ -73,7 +75,8 @@ const indexRoute = createRoute({
   path: "/",
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth" });
+    const offline = await getOfflineAuthState();
+    if (!data.session && !offline) throw redirect({ to: "/auth" });
     throw redirect({ to: "/pos" });
   },
   component: () => null,

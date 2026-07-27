@@ -9,6 +9,13 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Store } from "lucide-react";
+import {
+  cacheCurrentUserForOffline,
+  cashierEmailFromNickname,
+  getOfflineAuthState,
+  isNetworkLikeError,
+  signInOffline,
+} from "@/lib/offline-auth";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -25,15 +32,24 @@ function safeNext(next: string | undefined): string {
   return next;
 }
 
+function goAfterLogin(nav: ReturnType<typeof useNavigate>, target: string) {
+  nav({ to: (target === "/" ? "/pos" : target) as any });
+}
+
 function AuthPage() {
   const nav = useNavigate();
   const { next } = useSearch({ from: "/auth" });
   const target = safeNext(next);
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) window.location.replace(target);
+    let cancelled = false;
+    Promise.all([
+      supabase.auth.getSession().catch(() => ({ data: { session: null } } as any)),
+      getOfflineAuthState(),
+    ]).then(([session, offline]) => {
+      if (!cancelled && (session.data.session?.user || offline)) goAfterLogin(nav, target);
     });
-  }, [target]);
+    return () => { cancelled = true; };
+  }, [nav, target]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -67,13 +83,26 @@ function CashierForm({ target, nav }: { target: string; nav: ReturnType<typeof u
     e.preventDefault();
     setLoading(true);
     try {
-      const { email } = await resolveCashierEmail({ data: { nickname } });
+      const email = navigator.onLine
+        ? (await resolveCashierEmail({ data: { nickname } })).email
+        : cashierEmailFromNickname(nickname);
       const { error } = await supabase.auth.signInWithPassword({ email, password: pin });
       if (error) throw error;
+      await cacheCurrentUserForOffline(pin, nickname);
       toast.success("Добро пожаловать");
-      if (target !== "/") window.location.replace(target);
-      else nav({ to: "/pos" });
+      goAfterLogin(nav, target);
     } catch (e: any) {
+      if (isNetworkLikeError(e)) {
+        try {
+          await signInOffline(nickname, pin);
+          toast.success("Оффлайн-вход выполнен");
+          goAfterLogin(nav, target);
+          return;
+        } catch (offlineError: any) {
+          toast.error(offlineError.message ?? "Оффлайн-вход недоступен");
+          return;
+        }
+      }
       toast.error(e.message ?? "Неверный никнейм или PIN");
     } finally {
       setLoading(false);
@@ -107,6 +136,7 @@ function AdminForm({ target, nav }: { target: string; nav: ReturnType<typeof use
     setLoading(true);
     try {
       if (mode === "signup") {
+        if (!navigator.onLine) throw new Error("Регистрация доступна только с интернетом");
         const emailRedirectTo =
           target === "/" ? window.location.origin : window.location.origin + target;
         const { error } = await supabase.auth.signUp({
@@ -115,14 +145,26 @@ function AdminForm({ target, nav }: { target: string; nav: ReturnType<typeof use
           options: { emailRedirectTo },
         });
         if (error) throw error;
+        await cacheCurrentUserForOffline(password, email);
         toast.success("Регистрация выполнена");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await cacheCurrentUserForOffline(password, email);
       }
-      if (target !== "/") window.location.replace(target);
-      else nav({ to: "/" });
+      goAfterLogin(nav, target);
     } catch (e: any) {
+      if (mode === "signin" && isNetworkLikeError(e)) {
+        try {
+          await signInOffline(email, password);
+          toast.success("Оффлайн-вход выполнен");
+          goAfterLogin(nav, target);
+          return;
+        } catch (offlineError: any) {
+          toast.error(offlineError.message ?? "Оффлайн-вход недоступен");
+          return;
+        }
+      }
       toast.error(e.message);
     } finally {
       setLoading(false);

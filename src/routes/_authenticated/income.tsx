@@ -12,6 +12,10 @@ import { formatUZS, formatDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth-hooks";
 import { toast } from "sonner";
 import { Plus, ArrowDownCircle } from "lucide-react";
+import { db, type PendingStockMovement } from "@/lib/db";
+import { useLiveQuery } from "dexie-react-hooks";
+import { cacheOnlineStockMovements, saveStockMovement } from "@/lib/offline-ops";
+import { useOnline } from "@/lib/auth-hooks";
 
 export const Route = createFileRoute("/_authenticated/income")({
   ssr: false,
@@ -20,18 +24,34 @@ export const Route = createFileRoute("/_authenticated/income")({
 
 function IncomePage() {
   const { user, profile } = useAuth();
+  const online = useOnline();
   const [items, setItems] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const cachedItems = useLiveQuery(
+    () => db.pendingStockMovements.where("type").equals("income").reverse().sortBy("created_at"),
+    [],
+    [] as PendingStockMovement[],
+  );
 
   async function load() {
-    const [{ data: mv }, { data: pr }] = await Promise.all([
-      supabase.from("stock_movements").select("*, products(name)").eq("type", "income").order("created_at", { ascending: false }).limit(100),
-      supabase.from("products").select("id,name").eq("is_active", true).order("name"),
-    ]);
-    setItems(mv ?? []);
-    setProducts(pr ?? []);
+    if (!online) {
+      setProducts(await db.products.orderBy("name").toArray());
+      return;
+    }
+    try {
+      const [{ data: mv }, { data: pr }] = await Promise.all([
+        supabase.from("stock_movements").select("*, products(name)").eq("type", "income").order("created_at", { ascending: false }).limit(100),
+        supabase.from("products").select("id,name").eq("is_active", true).order("name"),
+      ]);
+      if (mv) await cacheOnlineStockMovements(mv, "income");
+      setItems(mv ?? []);
+      setProducts(pr ?? await db.products.orderBy("name").toArray());
+    } catch {
+      setProducts(await db.products.orderBy("name").toArray());
+    }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [online]);
+  const visibleItems = cachedItems?.length ? cachedItems : items;
 
   return (
     <div className="p-6 h-screen overflow-auto">
@@ -40,16 +60,16 @@ function IncomePage() {
         <IncomeDialog products={products} branchId={profile?.branch_id ?? null} cashierId={user?.id} onDone={load} />
       </div>
       <div className="space-y-2">
-        {items.length === 0 && <div className="text-muted-foreground">Нет операций</div>}
-        {items.map((m) => (
+        {visibleItems.length === 0 && <div className="text-muted-foreground">Нет операций</div>}
+        {visibleItems.map((m: any) => (
           <Card key={m.id} className="p-4 flex justify-between items-center">
             <div>
-              <div className="font-medium">{m.products?.name ?? m.note}</div>
+              <div className="font-medium">{m.products?.name ?? m.product_name ?? m.note}</div>
               <div className="text-xs text-muted-foreground">{formatDate(m.created_at)}</div>
             </div>
             <div className="text-right">
               <div className="font-bold">+{m.qty} шт</div>
-              <div className="text-sm text-muted-foreground">{formatUZS((m.qty ?? 0) * Number(m.cost_price ?? 0))}</div>
+              <div className="text-sm text-muted-foreground">{formatUZS((m.qty ?? 0) * Number(m.unit_price ?? 0))}</div>
             </div>
           </Card>
         ))}
@@ -72,22 +92,28 @@ function IncomeDialog({ products, branchId, cashierId, onDone }: any) {
     setBusy(true);
     const qtyN = Number(qty);
     const costN = Number(cost) || 0;
-    const { error } = await supabase.from("stock_movements").insert({
-      type: "income",
-      product_id: productId,
-      qty: qtyN,
-      unit_price: costN,
-      amount: qtyN * costN,
-      note,
-      branch_id: branchId,
-      user_id: cashierId,
-    });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Приход добавлен");
-    setOpen(false);
-    setProductId(""); setQty("1"); setCost(""); setNote("");
-    onDone();
+    try {
+      const productName = products.find((p: any) => p.id === productId)?.name ?? null;
+      const result = await saveStockMovement({
+        type: "income",
+        product_id: productId,
+        product_name: productName,
+        qty: qtyN,
+        unit_price: costN,
+        amount: qtyN * costN,
+        note,
+        branch_id: branchId,
+        user_id: cashierId,
+      });
+      toast.success(result.queued ? "Приход сохранён оффлайн" : "Приход добавлен");
+      setOpen(false);
+      setProductId(""); setQty("1"); setCost(""); setNote("");
+      onDone();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
