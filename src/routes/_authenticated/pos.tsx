@@ -116,6 +116,43 @@ function POSPage() {
 
   function clearCart() { setCart([]); }
 
+  const parked = useLiveQuery(() => db.parked.orderBy("created_at").reverse().toArray(), [], [] as ParkedTicket[]);
+  const [parkLabel, setParkLabel] = useState("");
+  const [parkOpen, setParkOpen] = useState(false);
+
+  async function handlePark() {
+    if (!cart.length) return;
+    const items = cart.map((l) => ({
+      product_id: l.product_id,
+      product_name: l.name,
+      variant_size: l.variant_size ?? null,
+      qty: l.qty,
+      unit_price: l.unit_price,
+      cost_price: l.cost_price,
+      total: l.qty * l.unit_price,
+    }));
+    await parkTicket({ label: parkLabel.trim() || `Чек ${new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`, items, total });
+    setParkLabel("");
+    setParkOpen(false);
+    clearCart();
+    toast.success("Чек отложен");
+  }
+
+  async function handleRestore(t: ParkedTicket) {
+    const ticket = await unparkTicket(t.id);
+    if (!ticket) return;
+    setCart(ticket.items.map((it, idx) => ({
+      key: it.product_id ? `${it.product_id}::${it.variant_size ?? ""}::${idx}` : `restored-${idx}-${Date.now()}`,
+      product_id: it.product_id,
+      name: it.product_name,
+      variant_size: it.variant_size,
+      qty: it.qty,
+      unit_price: it.unit_price,
+      cost_price: it.cost_price,
+    })));
+    toast.success("Чек восстановлен");
+  }
+
   function addFreeItem(name: string, price: number, qty: number) {
     setCart((c) => [...c, {
       key: `free-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
