@@ -64,6 +64,52 @@ jobs:
           rm -rf android/app/src/main/assets/public/*
           cp -R www/. android/app/src/main/assets/public/
 
+      - name: Generate capacitor-cordova-android-plugins stub
+        run: |
+          PLUGIN_DIR="android/capacitor-cordova-android-plugins"
+          mkdir -p "$PLUGIN_DIR/src/main/libs"
+          cat > "$PLUGIN_DIR/build.gradle" <<'EOF'
+          apply plugin: 'com.android.library'
+
+          android {
+              namespace "capacitor.cordova.android.plugins"
+              compileSdk rootProject.ext.compileSdkVersion
+              defaultConfig {
+                  minSdkVersion rootProject.ext.minSdkVersion
+                  targetSdkVersion rootProject.ext.targetSdkVersion
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_21
+                  targetCompatibility JavaVersion.VERSION_21
+              }
+              lintOptions { abortOnError false }
+          }
+
+          repositories {
+              google()
+              mavenCentral()
+              flatDir { dirs 'src/main/libs', 'libs' }
+          }
+
+          dependencies {
+              implementation fileTree(dir: 'src/main/libs', include: ['*.jar'])
+              implementation project(':capacitor-android')
+          }
+          EOF
+          cat > "$PLUGIN_DIR/cordova.variables.gradle" <<'EOF'
+          ext {
+              cdvMinSdkVersion = rootProject.ext.minSdkVersion
+          }
+          EOF
+          cat > "$PLUGIN_DIR/src/main/AndroidManifest.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+          EOF
+          ls -la "$PLUGIN_DIR"
+
+
       - name: Build debug APK
         working-directory: android
         run: |
