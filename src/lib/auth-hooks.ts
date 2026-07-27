@@ -38,19 +38,25 @@ export function useAuth(): AuthState {
         }
         return;
       }
-      const [{ data: roleRows }, { data: prof }] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("profiles").select("id,nickname,email,branch_id").eq("id", user.id).maybeSingle(),
-      ]).catch(async () => {
+      let roleRows: { role: AppRole }[] | null = null;
+      let prof: Profile | null = null;
+      try {
+        const [rolesResult, profileResult] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", user.id),
+          supabase.from("profiles").select("id,nickname,email,branch_id").eq("id", user.id).maybeSingle(),
+        ]);
+        roleRows = (rolesResult.data as { role: AppRole }[] | null) ?? null;
+        prof = (profileResult.data as Profile | null) ?? null;
+      } catch {
         const offline = await getOfflineAuthState();
         if (!cancelled) {
           setState(offline ? { ...offline, loading: false } : { user, role: null, profile: null, loading: false });
         }
-        return [{ data: null }, { data: null }] as const;
-      });
+        return;
+      }
       if (cancelled) return;
       const role = (roleRows?.[0]?.role as AppRole) ?? null;
-      setState({ user, role, profile: prof as Profile | null, loading: false });
+      setState({ user, role, profile: prof, loading: false });
     }
 
     supabase.auth.getSession().then(({ data }) => load(data.session?.user ?? null)).catch(() => load(null));
