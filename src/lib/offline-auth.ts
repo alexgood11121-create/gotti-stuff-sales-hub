@@ -1,8 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
-import { db, type CachedAuthUser, type Profile } from "@/lib/db";
+import { db, type CachedAuthUser } from "@/lib/db";
 import type { User } from "@supabase/supabase-js";
 
 type AppRole = "admin" | "cashier";
+
+interface Profile {
+  id: string;
+  nickname: string | null;
+  email: string | null;
+  branch_id: string | null;
+}
 
 interface OfflineSession {
   user_id: string;
