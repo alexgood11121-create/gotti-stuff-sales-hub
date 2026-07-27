@@ -297,10 +297,10 @@ function PayDialog({
   useEffect(() => {
     if (open) {
       setMethod("cash");
-      setCash("");
+      setCash(String(total));
       setCard("");
     }
-  }, [open]);
+  }, [open, total]);
 
   const cashNum = Number(cash) || 0;
 
