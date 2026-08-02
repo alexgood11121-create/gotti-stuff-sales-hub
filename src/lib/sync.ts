@@ -104,6 +104,7 @@ export async function syncEverything(): Promise<{ synced: number; failed: number
     syncPendingStockMovements(),
     syncPendingShifts(),
   ]);
+  void syncReceiptsCache();
   return {
     synced: sales.synced + movements.synced + shifts.synced,
     failed: sales.failed + movements.failed + shifts.failed,
