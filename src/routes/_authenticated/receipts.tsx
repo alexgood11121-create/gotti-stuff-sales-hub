@@ -1,65 +1,95 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { formatDate, formatUZS } from "@/lib/format";
-import { useAuth } from "@/lib/auth-hooks";
+import { formatUZS } from "@/lib/format";
+import { useAuth, useOnline } from "@/lib/auth-hooks";
+import { db, type CachedSale, type CachedSaleItem } from "@/lib/db";
+import { useLiveQuery } from "dexie-react-hooks";
+import { syncReceiptsCache } from "@/lib/receipts-cache";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Pencil, Check, X } from "lucide-react";
+import { Trash2, Pencil, Check, X, CloudOff } from "lucide-react";
 import { toast } from "sonner";
-import { getSaleDetail, updateSaleItem, deleteSaleItem, deleteSale } from "@/lib/sales.functions";
+import { updateSaleItem, deleteSaleItem, deleteSale } from "@/lib/sales.functions";
 
 export const Route = createFileRoute("/_authenticated/receipts")({
   ssr: false,
   component: ReceiptsPage,
 });
 
+function fmtDateTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+function payLabel(m: string) {
+  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : "Смешанная";
+}
+
 function ReceiptsPage() {
-  const { role, user } = useAuth();
-  const [sales, setSales] = useState<any[]>([]);
-  const [nicks, setNicks] = useState<Record<string, string>>({});
+  const { role, user, profile } = useAuth();
+  const online = useOnline();
   const [openId, setOpenId] = useState<string | null>(null);
 
-  async function load() {
-    if (!user) return;
-    let q = supabase
-      .from("sales")
-      .select("id,created_at,total,payment_method,cash_amount,card_amount,cashier_id,branches(name)")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (role === "cashier") q = q.eq("cashier_id", user.id);
-    const { data } = await q;
-    setSales(data ?? []);
-    const ids = Array.from(new Set((data ?? []).map((s: any) => s.cashier_id).filter(Boolean)));
-    if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id,nickname").in("id", ids);
-      setNicks(Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nickname])));
-    }
-  }
+  // Фоновая подтяжка с сервера — список при этом уже отрисован из локального кэша.
+  useEffect(() => {
+    if (!online || !user) return;
+    void syncReceiptsCache({ userId: user.id, role });
+  }, [online, user?.id, role]);
 
-  useEffect(() => { load(); }, [user, role]);
+  const sales = useLiveQuery(
+    () => db.sales.orderBy("created_at").reverse().limit(150).toArray(),
+    [],
+    [] as CachedSale[],
+  );
+
+  const visible = (sales ?? []).filter(
+    (s) => role !== "cashier" || !s.cashier_id || s.cashier_id === user?.id,
+  );
+
+  const myName = profile?.nickname ?? profile?.email ?? "—";
 
   return (
     <div className="p-6 h-screen overflow-auto">
-      <h1 className="text-2xl font-bold mb-4">Чеки</h1>
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <h1 className="text-2xl font-bold">Чеки</h1>
+        {!online && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <CloudOff className="w-4 h-4" /> офлайн — показаны сохранённые чеки
+          </span>
+        )}
+      </div>
       <div className="space-y-2">
-        {sales.length === 0 && <div className="text-muted-foreground">Пока нет чеков</div>}
-        {sales.map((s) => (
+        {visible.length === 0 && <div className="text-muted-foreground">Пока нет чеков</div>}
+        {visible.map((s) => (
           <Card
             key={s.id}
-            className="p-4 flex items-center justify-between cursor-pointer hover:border-primary transition"
+            className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:border-primary transition"
             onClick={() => setOpenId(s.id)}
           >
-            <div>
-              <div className="font-mono text-xs text-muted-foreground">#{s.id.slice(0, 8)}</div>
-              <div className="text-sm">{formatDate(s.created_at)}</div>
-              <div className="text-xs text-muted-foreground">
-                {s.branches?.name ?? "—"} · {nicks[s.cashier_id] ?? "—"} · {payLabel(s.payment_method)}
+            <div className="min-w-0">
+              <div className="font-semibold truncate">
+                {s.cashier_name ?? (s.cashier_id === user?.id ? myName : "—")}
+                <span className="text-muted-foreground font-normal"> · {fmtTime(s.created_at)}</span>
+              </div>
+              <div className="text-sm text-muted-foreground truncate">{fmtDateTime(s.created_at)}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {s.branch_name ?? "—"} · {payLabel(s.payment_method)}
+                {s.pending === 1 && <span className="text-amber-500"> · не синхронизирован</span>}
               </div>
             </div>
-            <div className="text-xl font-bold text-primary">{formatUZS(s.total)}</div>
+            <div className="text-xl font-bold text-primary shrink-0">{formatUZS(s.total)}</div>
           </Card>
         ))}
       </div>
@@ -67,8 +97,10 @@ function ReceiptsPage() {
       <ReceiptDetailDialog
         saleId={openId}
         onClose={() => setOpenId(null)}
-        canEdit={role === "admin"}
-        onChanged={load}
+        canEdit={role === "admin" && online}
+        onChanged={() => {
+          if (user) void syncReceiptsCache({ userId: user.id, role });
+        }}
       />
     </div>
   );
@@ -82,26 +114,25 @@ function ReceiptDetailDialog({
   canEdit: boolean;
   onChanged: () => void;
 }) {
-  const [sale, setSale] = useState<any>(null);
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [editPrice, setEditPrice] = useState("");
 
-  async function load() {
-    if (!saleId) return;
-    setLoading(true);
-    try {
-      const r = await getSaleDetail({ data: { sale_id: saleId } });
-      setSale(r.sale);
-      setItems(r.items);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setLoading(false); }
-  }
-  useEffect(() => { if (saleId) load(); else { setSale(null); setItems([]); setEditId(null); } }, [saleId]);
+  const sale = useLiveQuery(
+    () => (saleId ? db.sales.get(saleId) : Promise.resolve(undefined)),
+    [saleId],
+  );
+  const items = useLiveQuery(
+    () => (saleId ? db.saleItems.where("sale_id").equals(saleId).toArray() : Promise.resolve([])),
+    [saleId],
+    [] as CachedSaleItem[],
+  );
 
-  function startEdit(it: any) {
+  useEffect(() => {
+    if (!saleId) setEditId(null);
+  }, [saleId]);
+
+  function startEdit(it: CachedSaleItem) {
     setEditId(it.id);
     setEditQty(String(it.qty));
     setEditPrice(String(it.unit_price));
@@ -116,7 +147,6 @@ function ReceiptDetailDialog({
       await updateSaleItem({ data: { item_id: editId, qty, unit_price: price } });
       toast.success("Обновлено");
       setEditId(null);
-      await load();
       onChanged();
     } catch (e: any) { toast.error(e.message); }
   }
@@ -126,7 +156,6 @@ function ReceiptDetailDialog({
     try {
       await deleteSaleItem({ data: { item_id: id } });
       toast.success("Удалено");
-      await load();
       onChanged();
     } catch (e: any) { toast.error(e.message); }
   }
@@ -146,17 +175,18 @@ function ReceiptDetailDialog({
     <Dialog open={!!saleId} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle>Чек {sale && <span className="font-mono text-sm text-muted-foreground">#{sale.id.slice(0, 8)}</span>}</DialogTitle>
+          <DialogTitle>
+            {sale ? `${sale.cashier_name ?? "Кассир"} · ${fmtTime(sale.created_at)}` : "Чек"}
+          </DialogTitle>
         </DialogHeader>
-        {loading && <div className="text-muted-foreground">Загрузка...</div>}
         {sale && (
           <div className="space-y-3">
             <div className="text-sm text-muted-foreground">
-              {formatDate(sale.created_at)} · {payLabel(sale.payment_method)}
+              {fmtDateTime(sale.created_at)} · {payLabel(sale.payment_method)} · {sale.branch_name ?? "—"}
             </div>
             <div className="border border-border rounded-lg divide-y divide-border">
-              {items.length === 0 && <div className="p-4 text-muted-foreground text-sm">Позиций нет</div>}
-              {items.map((it) => (
+              {(items ?? []).length === 0 && <div className="p-4 text-muted-foreground text-sm">Позиций нет</div>}
+              {(items ?? []).map((it) => (
                 <div key={it.id} className="p-3 flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">
@@ -208,8 +238,4 @@ function ReceiptDetailDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function payLabel(m: string) {
-  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : "Смешанная";
 }
