@@ -344,17 +344,28 @@ function AdminDashboard() {
   );
 }
 
-function Kpi({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
+function Kpi({ title, value, icon, active, onClick }: {
+  title: string; value: string; icon: React.ReactNode; active?: boolean; onClick?: () => void;
+}) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
+    <Tag
+      onClick={onClick}
+      className={cn(
+        "bg-card border rounded-lg p-4 text-left w-full transition-colors",
+        active ? "border-primary" : "border-border",
+        onClick && "hover:border-primary",
+      )}
+    >
       <div className="flex items-center justify-between text-muted-foreground">
         <span className="text-xs">{title}</span>
         {icon}
       </div>
       <div className="mt-1 text-xl font-bold">{value}</div>
-    </div>
+    </Tag>
   );
 }
+
 
 function ShiftCard({ s, onOpen, live }: { s: any; onOpen: () => void; live?: boolean }) {
   const h = Math.floor((s.duration_minutes ?? 0) / 60);
