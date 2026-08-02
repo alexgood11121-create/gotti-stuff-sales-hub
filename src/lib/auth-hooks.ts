@@ -19,59 +19,78 @@ export interface AuthState {
   loading: boolean;
 }
 
-export function useAuth(): AuthState {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    role: null,
-    profile: null,
-    loading: true,
+// ── Глобальный кэш авторизации ────────────────────────────────────────────
+// Раньше каждая страница при монтировании заново дёргала сеть (user_roles +
+// profiles). Офлайн это давало «лаги» на каждом переходе. Теперь состояние
+// хранится в модуле: переход между страницами берёт его мгновенно.
+
+let cachedState: AuthState = { user: null, role: null, profile: null, loading: true };
+let initialized = false;
+const subscribers = new Set<(s: AuthState) => void>();
+
+function emit(next: AuthState) {
+  cachedState = next;
+  subscribers.forEach((fn) => fn(next));
+}
+
+async function loadAuth(user: User | null) {
+  if (!user) {
+    const offline = await getOfflineAuthState();
+    emit(offline ? { ...offline, loading: false } : { user: null, role: null, profile: null, loading: false });
+    return;
+  }
+
+  // Сначала мгновенно отдаём то, что есть локально, чтобы UI не ждал сеть.
+  const offlineFirst = await getOfflineAuthState();
+  if (offlineFirst && offlineFirst.user.id === user.id) {
+    emit({ ...offlineFirst, user, loading: false });
+  }
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (!offlineFirst) emit({ user, role: null, profile: null, loading: false });
+    return;
+  }
+
+  try {
+    const [rolesResult, profileResult] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", user.id),
+      supabase.from("profiles").select("id,nickname,email,branch_id").eq("id", user.id).maybeSingle(),
+    ]);
+    const role = ((rolesResult.data as { role: AppRole }[] | null)?.[0]?.role as AppRole) ?? cachedState.role ?? null;
+    const prof = (profileResult.data as Profile | null) ?? cachedState.profile ?? null;
+    emit({ user, role, profile: prof, loading: false });
+  } catch {
+    if (!offlineFirst) emit({ user, role: cachedState.role, profile: cachedState.profile, loading: false });
+  }
+}
+
+function initAuth() {
+  if (initialized || typeof window === "undefined") return;
+  initialized = true;
+  supabase.auth
+    .getSession()
+    .then(({ data }) => loadAuth(data.session?.user ?? null))
+    .catch(() => loadAuth(null));
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+      void loadAuth(session?.user ?? null);
+    }
   });
+  window.addEventListener("gotti-offline-auth", () => {
+    void loadAuth(cachedState.user);
+  });
+}
+
+export function useAuth(): AuthState {
+  const [state, setState] = useState<AuthState>(cachedState);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load(user: User | null) {
-      if (!user) {
-        const offline = await getOfflineAuthState();
-        if (!cancelled) {
-          setState(offline ? { ...offline, loading: false } : { user: null, role: null, profile: null, loading: false });
-        }
-        return;
-      }
-      let roleRows: { role: AppRole }[] | null = null;
-      let prof: Profile | null = null;
-      try {
-        const [rolesResult, profileResult] = await Promise.all([
-          supabase.from("user_roles").select("role").eq("user_id", user.id),
-          supabase.from("profiles").select("id,nickname,email,branch_id").eq("id", user.id).maybeSingle(),
-        ]);
-        roleRows = (rolesResult.data as { role: AppRole }[] | null) ?? null;
-        prof = (profileResult.data as Profile | null) ?? null;
-      } catch {
-        const offline = await getOfflineAuthState();
-        if (!cancelled) {
-          setState(offline ? { ...offline, loading: false } : { user, role: null, profile: null, loading: false });
-        }
-        return;
-      }
-      if (cancelled) return;
-      const role = (roleRows?.[0]?.role as AppRole) ?? null;
-      setState({ user, role, profile: prof, loading: false });
-    }
-
-    supabase.auth.getSession().then(({ data }) => load(data.session?.user ?? null)).catch(() => load(null));
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-        load(session?.user ?? null);
-      }
-    });
-    const reloadOffline = () => { void load(null); };
-    window.addEventListener("gotti-offline-auth", reloadOffline);
+    initAuth();
+    subscribers.add(setState);
+    setState(cachedState);
     return () => {
-      cancelled = true;
-      window.removeEventListener("gotti-offline-auth", reloadOffline);
-      sub.subscription.unsubscribe();
+      subscribers.delete(setState);
     };
   }, []);
 

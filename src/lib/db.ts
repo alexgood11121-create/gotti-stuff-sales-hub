@@ -103,6 +103,33 @@ export interface CachedShift {
   last_error?: string;
 }
 
+export interface CachedSale {
+  id: string;
+  client_uuid: string | null;
+  created_at: string;
+  total: number;
+  payment_method: "cash" | "card" | "mixed";
+  cash_amount: number;
+  card_amount: number;
+  cashier_id: string | null;
+  cashier_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  pending: number; // 1 = ещё не отправлен на сервер
+}
+
+export interface CachedSaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string | null;
+  product_name: string;
+  variant_size: string | null;
+  qty: number;
+  unit_price: number;
+  cost_price: number;
+  total: number;
+}
+
 class GottiDB extends Dexie {
   products!: Table<CachedProduct, string>;
   categories!: Table<CachedCategory, string>;
@@ -111,6 +138,8 @@ class GottiDB extends Dexie {
   authUsers!: Table<CachedAuthUser, string>;
   pendingStockMovements!: Table<PendingStockMovement, string>;
   shifts!: Table<CachedShift, string>;
+  sales!: Table<CachedSale, string>;
+  saleItems!: Table<CachedSaleItem, string>;
 
   constructor() {
     super("gotti-stuff-db");
@@ -145,6 +174,17 @@ class GottiDB extends Dexie {
       authUsers: "id, email, nickname, role",
       pendingStockMovements: "id, type, synced, created_at, product_id, user_id",
       shifts: "id, cashier_id, synced, started_at, ended_at",
+    });
+    this.version(6).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+      parked: "id, created_at",
+      authUsers: "id, email, nickname, role",
+      pendingStockMovements: "id, type, synced, created_at, product_id, user_id",
+      shifts: "id, cashier_id, synced, started_at, ended_at",
+      sales: "id, created_at, cashier_id, branch_id, pending, client_uuid",
+      saleItems: "id, sale_id",
     });
   }
 }

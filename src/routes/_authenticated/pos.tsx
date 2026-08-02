@@ -192,7 +192,7 @@ function POSPage() {
               Нет товаров. Добавьте товары в разделе «Товары».
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="flex flex-col gap-2">
               {filtered.map((p) => {
                 const hasSizes = Array.isArray(p.sizes) && p.sizes.length > 0;
                 const priceLabel = hasSizes
@@ -202,17 +202,24 @@ function POSPage() {
                   <button
                     key={p.id}
                     onClick={() => onProductClick(p)}
-                    className="bg-card border border-border hover:border-primary rounded-lg p-3 text-left transition-colors flex flex-col active:scale-95"
+                    className="w-full bg-card border border-border hover:border-primary rounded-lg p-3 text-left transition-colors flex items-center gap-3 active:opacity-80"
                   >
-                    <div className="aspect-square rounded-md bg-muted overflow-hidden mb-2 flex items-center justify-center">
+                    <div className="h-12 w-12 shrink-0 rounded-md bg-muted overflow-hidden flex items-center justify-center">
                       {p.image_url ? (
-                        <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                        <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : (
-                        <Package className="w-8 h-8 text-muted-foreground" />
+                        <Package className="w-5 h-5 text-muted-foreground" />
                       )}
                     </div>
-                    <div className="font-medium text-sm line-clamp-2 flex-1">{p.name}</div>
-                    <div className="text-primary font-semibold text-sm mt-1">{priceLabel}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-base truncate">{p.name}</div>
+                      {hasSizes && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          {p.sizes.map((s) => s.size).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-primary font-bold text-base shrink-0">{priceLabel}</div>
                   </button>
                 );
               })}
