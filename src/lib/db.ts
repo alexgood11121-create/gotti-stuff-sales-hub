@@ -138,6 +138,8 @@ class GottiDB extends Dexie {
   authUsers!: Table<CachedAuthUser, string>;
   pendingStockMovements!: Table<PendingStockMovement, string>;
   shifts!: Table<CachedShift, string>;
+  sales!: Table<CachedSale, string>;
+  saleItems!: Table<CachedSaleItem, string>;
 
   constructor() {
     super("gotti-stuff-db");
@@ -172,6 +174,17 @@ class GottiDB extends Dexie {
       authUsers: "id, email, nickname, role",
       pendingStockMovements: "id, type, synced, created_at, product_id, user_id",
       shifts: "id, cashier_id, synced, started_at, ended_at",
+    });
+    this.version(6).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+      parked: "id, created_at",
+      authUsers: "id, email, nickname, role",
+      pendingStockMovements: "id, type, synced, created_at, product_id, user_id",
+      shifts: "id, cashier_id, synced, started_at, ended_at",
+      sales: "id, created_at, cashier_id, branch_id, pending, client_uuid",
+      saleItems: "id, sale_id",
     });
   }
 }
