@@ -1,20 +1,45 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { listShifts, getShiftDetails } from "@/lib/shifts.functions";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { formatUZS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X } from "lucide-react";
+import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X, Download, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { downloadWorkbook } from "@/lib/export-excel";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   ssr: false,
   component: AdminDashboard,
 });
 
+type PayFilter = "all" | "cash" | "card" | "mixed";
+
+const PERIODS = [
+  { key: "today", label: "Сегодня", days: 0 },
+  { key: "7", label: "7 дней", days: 7 },
+  { key: "30", label: "30 дней", days: 30 },
+] as const;
+
+function periodStart(key: string) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  if (key === "7") d.setDate(d.getDate() - 6);
+  if (key === "30") d.setDate(d.getDate() - 29);
+  return d;
+}
+
+function payLabel(m: string) {
+  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : "Смешанная";
+}
+
 function AdminDashboard() {
   const [selected, setSelected] = useState<string | null>(null);
+  const [period, setPeriod] = useState<string>("today");
+  const [payFilter, setPayFilter] = useState<PayFilter>("all");
 
   const shiftsQ = useQuery({
     queryKey: ["admin-shifts-list"],
@@ -28,28 +53,238 @@ function AdminDashboard() {
     enabled: !!selected,
   });
 
+  // Все продажи за период — для кассы и разбивки нал/карта
+  const salesQ = useQuery({
+    queryKey: ["admin-sales", period],
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const from = periodStart(period).toISOString();
+      const { data, error } = await supabase
+        .from("sales")
+        .select("id, created_at, total, cash_amount, card_amount, payment_method, cashier_id, branch_id, branches(name), sale_items(product_name, variant_size, qty, unit_price, total)")
+        .gte("created_at", from)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      const ids = Array.from(new Set((data ?? []).map((s: any) => s.cashier_id).filter(Boolean)));
+      let names: Record<string, string> = {};
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id, nickname, email").in("id", ids);
+        names = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nickname ?? p.email ?? "—"]));
+      }
+      return (data ?? []).map((s: any) => ({ ...s, cashier_name: names[s.cashier_id] ?? "—" }));
+    },
+  });
+
+  const sales = salesQ.data ?? [];
+  const sums = useMemo(() => {
+    return sales.reduce(
+      (acc: any, s: any) => {
+        acc.total += Number(s.total ?? 0);
+        acc.cash += Number(s.cash_amount ?? 0);
+        acc.card += Number(s.card_amount ?? 0);
+        acc[s.payment_method] = (acc[s.payment_method] ?? 0) + 1;
+        return acc;
+      },
+      { total: 0, cash: 0, card: 0, cash_n: 0, card_n: 0 },
+    );
+  }, [sales]);
+
+  const filteredSales = payFilter === "all" ? sales : sales.filter((s: any) => s.payment_method === payFilter);
+
   const shifts = shiftsQ.data ?? [];
   const openNow = shifts.filter((s: any) => !s.ended_at);
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const today = shifts.filter((s: any) => (s.started_at as string).slice(0, 10) === todayISO);
-  const todayTotal = today.reduce((sum: number, s: any) => sum + Number(s.stats?.total ?? 0), 0);
-  const todayCash = today.reduce((sum: number, s: any) => sum + Number(s.stats?.cash ?? 0), 0);
-  const todayCard = today.reduce((sum: number, s: any) => sum + Number(s.stats?.card ?? 0), 0);
+
+  function exportExcel() {
+    if (!sales.length) {
+      toast.error("Нет продаж за выбранный период");
+      return;
+    }
+    const label = PERIODS.find((p) => p.key === period)?.label ?? period;
+    const salesRows: (string | number)[][] = [
+      ["Дата", "Время", "Кассир", "Филиал", "Способ оплаты", "Наличные", "Карта", "Итого", "Товары"],
+      ...sales.map((s: any) => {
+        const d = new Date(s.created_at);
+        return [
+          d.toLocaleDateString("ru-RU"),
+          d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+          s.cashier_name,
+          s.branches?.name ?? "—",
+          payLabel(s.payment_method),
+          Number(s.cash_amount ?? 0),
+          Number(s.card_amount ?? 0),
+          Number(s.total ?? 0),
+          (s.sale_items ?? [])
+            .map((i: any) => `${i.product_name}${i.variant_size ? ` (${i.variant_size})` : ""} x${i.qty}`)
+            .join(", "),
+        ];
+      }),
+    ];
+
+    const byCashier = new Map<string, { cash: number; card: number; total: number; count: number }>();
+    for (const s of sales as any[]) {
+      const cur = byCashier.get(s.cashier_name) ?? { cash: 0, card: 0, total: 0, count: 0 };
+      cur.cash += Number(s.cash_amount ?? 0);
+      cur.card += Number(s.card_amount ?? 0);
+      cur.total += Number(s.total ?? 0);
+      cur.count += 1;
+      byCashier.set(s.cashier_name, cur);
+    }
+
+    downloadWorkbook(`gotti-stuff-kassa-${period}-${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      {
+        name: "Касса",
+        rows: [
+          ["Период", label],
+          ["Сформирован", new Date().toLocaleString("ru-RU")],
+          [],
+          ["Показатель", "Сумма"],
+          ["Выручка всего", sums.total],
+          ["Наличными", sums.cash],
+          ["Картой", sums.card],
+          ["Чеков", sales.length],
+        ],
+      },
+      {
+        name: "По кассирам",
+        rows: [
+          ["Кассир", "Чеков", "Наличные", "Карта", "Итого"],
+          ...Array.from(byCashier.entries()).map(([n, v]) => [n, v.count, v.cash, v.card, v.total]),
+        ],
+      },
+      { name: "Продажи", rows: salesRows },
+      {
+        name: "Смены",
+        rows: [
+          ["Кассир", "Филиал", "Открытие", "Закрытие", "Выручка", "Наличные", "Карта", "Чеков", "Расхождение"],
+          ...shifts.map((s: any) => [
+            s.cashier?.nickname ?? s.cashier?.email ?? "—",
+            s.branch?.name ?? "—",
+            new Date(s.started_at).toLocaleString("ru-RU"),
+            s.ended_at ? new Date(s.ended_at).toLocaleString("ru-RU") : "открыта",
+            Number(s.stats?.total ?? 0),
+            Number(s.stats?.cash ?? 0),
+            Number(s.stats?.card ?? 0),
+            Number(s.stats?.count ?? 0),
+            s.cash_diff != null ? Number(s.cash_diff) : "",
+          ]),
+        ],
+      },
+    ]);
+    toast.success("Excel-файл скачан");
+  }
 
   return (
     <AppShell>
       <div className="p-6 h-screen overflow-y-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Дашборд</h1>
-          <p className="text-sm text-muted-foreground">Смены и продажи</p>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold">Дашборд</h1>
+            <p className="text-sm text-muted-foreground">Касса, смены и продажи</p>
+          </div>
+          <Button onClick={exportExcel} className="shrink-0">
+            <Download className="w-4 h-4 mr-2" />Скачать Excel
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {PERIODS.map((p) => (
+            <Button
+              key={p.key}
+              size="sm"
+              variant={period === p.key ? "default" : "outline"}
+              onClick={() => setPeriod(p.key)}
+            >
+              {p.label}
+            </Button>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Kpi title="Открытых смен" value={String(openNow.length)} icon={<Clock className="w-5 h-5" />} />
-          <Kpi title="Сегодня выручка" value={formatUZS(todayTotal)} icon={<TrendingUp className="w-5 h-5" />} />
-          <Kpi title="Сегодня наличные" value={formatUZS(todayCash)} icon={<Banknote className="w-5 h-5" />} />
-          <Kpi title="Сегодня карта" value={formatUZS(todayCard)} icon={<CreditCard className="w-5 h-5" />} />
+          <Kpi
+            title="Выручка за период"
+            value={formatUZS(sums.total)}
+            icon={<TrendingUp className="w-5 h-5" />}
+            active={payFilter === "all"}
+            onClick={() => setPayFilter("all")}
+          />
+          <Kpi
+            title="Наличные"
+            value={formatUZS(sums.cash)}
+            icon={<Banknote className="w-5 h-5" />}
+            active={payFilter === "cash"}
+            onClick={() => setPayFilter("cash")}
+          />
+          <Kpi
+            title="Карта"
+            value={formatUZS(sums.card)}
+            icon={<CreditCard className="w-5 h-5" />}
+            active={payFilter === "card"}
+            onClick={() => setPayFilter("card")}
+          />
         </div>
+
+        <section>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h2 className="text-lg font-semibold mr-2 flex items-center gap-2">
+              <Wallet className="w-4 h-4" />Касса
+            </h2>
+            {(["all", "cash", "card", "mixed"] as PayFilter[]).map((f) => (
+              <Button
+                key={f}
+                size="sm"
+                variant={payFilter === f ? "default" : "outline"}
+                onClick={() => setPayFilter(f)}
+              >
+                {f === "all" ? "Все" : payLabel(f)}
+              </Button>
+            ))}
+            <span className="text-sm text-muted-foreground ml-auto">
+              {filteredSales.length} чек. ·{" "}
+              {formatUZS(filteredSales.reduce((s: number, x: any) => s + Number(x.total ?? 0), 0))}
+            </span>
+          </div>
+          {salesQ.isLoading ? (
+            <div className="text-sm text-muted-foreground">Загрузка...</div>
+          ) : filteredSales.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Продаж нет</div>
+          ) : (
+            <div className="border border-border rounded-lg divide-y divide-border max-h-[420px] overflow-y-auto">
+              {filteredSales.map((s: any) => (
+                <div key={s.id} className="p-3 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">
+                      {s.cashier_name}
+                      <span className="text-muted-foreground font-normal">
+                        {" · "}{new Date(s.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {s.branches?.name ?? "—"} · {payLabel(s.payment_method)}
+                      {s.payment_method === "mixed" && (
+                        <> · нал {formatUZS(s.cash_amount)} + карта {formatUZS(s.card_amount)}</>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full shrink-0",
+                      s.payment_method === "cash"
+                        ? "bg-primary/20 text-primary"
+                        : s.payment_method === "card"
+                          ? "bg-blue-500/20 text-blue-500"
+                          : "bg-yellow-500/20 text-yellow-600",
+                    )}
+                  >
+                    {payLabel(s.payment_method)}
+                  </span>
+                  <div className="font-bold shrink-0">{formatUZS(s.total)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
 
         {openNow.length > 0 && (
           <section>
@@ -109,17 +344,28 @@ function AdminDashboard() {
   );
 }
 
-function Kpi({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
+function Kpi({ title, value, icon, active, onClick }: {
+  title: string; value: string; icon: React.ReactNode; active?: boolean; onClick?: () => void;
+}) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
+    <Tag
+      onClick={onClick}
+      className={cn(
+        "bg-card border rounded-lg p-4 text-left w-full transition-colors",
+        active ? "border-primary" : "border-border",
+        onClick && "hover:border-primary",
+      )}
+    >
       <div className="flex items-center justify-between text-muted-foreground">
         <span className="text-xs">{title}</span>
         {icon}
       </div>
       <div className="mt-1 text-xl font-bold">{value}</div>
-    </div>
+    </Tag>
   );
 }
+
 
 function ShiftCard({ s, onOpen, live }: { s: any; onOpen: () => void; live?: boolean }) {
   const h = Math.floor((s.duration_minutes ?? 0) / 60);
