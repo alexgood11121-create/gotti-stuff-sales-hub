@@ -119,11 +119,11 @@ function ReceiptDetailDialog({
   const [editPrice, setEditPrice] = useState("");
 
   const sale = useLiveQuery(
-    () => (saleId ? db.sales.get(saleId) : Promise.resolve(undefined)),
+    async () => (saleId ? await db.sales.get(saleId) : undefined),
     [saleId],
-  );
-  const items = useLiveQuery(
-    () => (saleId ? db.saleItems.where("sale_id").equals(saleId).toArray() : Promise.resolve([])),
+  ) as CachedSale | undefined;
+  const items = useLiveQuery<CachedSaleItem[], CachedSaleItem[]>(
+    async () => (saleId ? await db.saleItems.where("sale_id").equals(saleId).toArray() : []),
     [saleId],
     [] as CachedSaleItem[],
   );
