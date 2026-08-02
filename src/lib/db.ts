@@ -103,6 +103,33 @@ export interface CachedShift {
   last_error?: string;
 }
 
+export interface CachedSale {
+  id: string;
+  client_uuid: string | null;
+  created_at: string;
+  total: number;
+  payment_method: "cash" | "card" | "mixed";
+  cash_amount: number;
+  card_amount: number;
+  cashier_id: string | null;
+  cashier_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  pending: number; // 1 = ещё не отправлен на сервер
+}
+
+export interface CachedSaleItem {
+  id: string;
+  sale_id: string;
+  product_id: string | null;
+  product_name: string;
+  variant_size: string | null;
+  qty: number;
+  unit_price: number;
+  cost_price: number;
+  total: number;
+}
+
 class GottiDB extends Dexie {
   products!: Table<CachedProduct, string>;
   categories!: Table<CachedCategory, string>;
