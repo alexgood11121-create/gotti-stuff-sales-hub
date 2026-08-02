@@ -47,6 +47,7 @@ export async function syncPendingSales(): Promise<{ synced: number; failed: numb
           },
         });
         await db.pendingSales.update(s.client_uuid, { synced: 1 });
+        await dropPendingSaleCache(s.client_uuid);
         synced++;
       } catch (e: any) {
         failed++;
