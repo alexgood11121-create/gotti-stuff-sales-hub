@@ -106,7 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     load();
     const ch = supabase
-      .channel("notif")
+      .channel(`notif-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, load)
       .subscribe();
     return () => {
