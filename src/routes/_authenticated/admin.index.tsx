@@ -281,7 +281,7 @@ function AdminDashboard() {
           ))}
           <select
             value={shiftFilter}
-            onChange={(e) => setShiftFilter(e.target.value)}
+            onChange={(e) => { setShiftFilter(e.target.value); if (e.target.value !== "all") setPeriod("30"); }}
             className="h-9 rounded-md border border-border bg-background px-2 text-sm max-w-[320px]"
           >
             <option value="all">Все смены</option>
