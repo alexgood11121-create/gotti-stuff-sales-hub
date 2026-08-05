@@ -255,23 +255,50 @@ function AdminDashboard() {
             <h1 className="text-2xl font-bold">Дашборд</h1>
             <p className="text-sm text-muted-foreground">Касса, смены и продажи</p>
           </div>
-          <Button onClick={exportExcel} className="shrink-0">
-            <Download className="w-4 h-4 mr-2" />Скачать Excel
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button onClick={exportPdf} variant="outline" className="shrink-0">
+              <FileText className="w-4 h-4 mr-2" />PDF
+            </Button>
+            <Button onClick={exportExcel} className="shrink-0">
+              <Download className="w-4 h-4 mr-2" />Excel
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {PERIODS.map((p) => (
             <Button
               key={p.key}
               size="sm"
               variant={period === p.key ? "default" : "outline"}
               onClick={() => setPeriod(p.key)}
+              disabled={shiftFilter !== "all"}
             >
               {p.label}
             </Button>
           ))}
+          <select
+            value={shiftFilter}
+            onChange={(e) => setShiftFilter(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm max-w-[320px]"
+          >
+            <option value="all">Все смены</option>
+            {(shifts as any[]).map((s) => (
+              <option key={s.id} value={s.id}>{shiftLabel(s)}</option>
+            ))}
+          </select>
+          {shiftFilter !== "all" && (
+            <Button size="sm" variant="ghost" onClick={() => setShiftFilter("all")}>
+              <X className="w-3 h-3 mr-1" />Сбросить смену
+            </Button>
+          )}
+          {activeShift && (
+            <Button size="sm" variant="outline" onClick={() => setSelected(activeShift.id)}>
+              Детали смены
+            </Button>
+          )}
         </div>
+
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Kpi title="Открытых смен" value={String(openNow.length)} icon={<Clock className="w-5 h-5" />} />
