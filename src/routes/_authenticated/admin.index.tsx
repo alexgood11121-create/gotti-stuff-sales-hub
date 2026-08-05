@@ -408,7 +408,7 @@ function AdminDashboard() {
             <div className="text-muted-foreground text-sm">Смен нет</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {shifts.filter((s: any) => s.ended_at).map((s: any) => (
+              {closedShifts.map((s: any) => (
                 <ShiftCard key={s.id} s={s} onOpen={() => setSelected(s.id)} />
               ))}
             </div>
