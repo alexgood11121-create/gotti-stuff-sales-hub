@@ -5,11 +5,13 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { formatUZS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X, Download, Wallet } from "lucide-react";
+import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X, Download, Wallet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadWorkbook } from "@/lib/export-excel";
+import { printReportPdf } from "@/lib/export-pdf";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   ssr: false,
@@ -40,6 +42,7 @@ function AdminDashboard() {
   const [selected, setSelected] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>("today");
   const [payFilter, setPayFilter] = useState<PayFilter>("all");
+  const [shiftFilter, setShiftFilter] = useState<string>("all");
 
   const shiftsQ = useQuery({
     queryKey: ["admin-shifts-list"],
@@ -75,7 +78,23 @@ function AdminDashboard() {
     },
   });
 
-  const sales = salesQ.data ?? [];
+  const shifts = shiftsQ.data ?? [];
+  const activeShift = useMemo(
+    () => (shiftFilter === "all" ? null : (shifts as any[]).find((s) => s.id === shiftFilter) ?? null),
+    [shiftFilter, shifts],
+  );
+
+  const sales = useMemo(() => {
+    const all = salesQ.data ?? [];
+    if (!activeShift) return all;
+    const start = new Date(activeShift.started_at).getTime();
+    const end = activeShift.ended_at ? new Date(activeShift.ended_at).getTime() : Date.now();
+    return all.filter((s: any) => {
+      const t = new Date(s.created_at).getTime();
+      return s.cashier_id === activeShift.cashier_id && t >= start && t <= end;
+    });
+  }, [salesQ.data, activeShift]);
+
   const sums = useMemo(() => {
     return sales.reduce(
       (acc: any, s: any) => {
@@ -89,10 +108,67 @@ function AdminDashboard() {
     );
   }, [sales]);
 
-  const filteredSales = payFilter === "all" ? sales : sales.filter((s: any) => s.payment_method === payFilter);
+  const filteredSales = useMemo(
+    () => (payFilter === "all" ? sales : sales.filter((s: any) => s.payment_method === payFilter)),
+    [sales, payFilter],
+  );
 
-  const shifts = shiftsQ.data ?? [];
-  const openNow = shifts.filter((s: any) => !s.ended_at);
+  const openNow = useMemo(() => (shifts as any[]).filter((s) => !s.ended_at), [shifts]);
+  const closedShifts = useMemo(() => (shifts as any[]).filter((s) => s.ended_at), [shifts]);
+  const shiftLabel = (s: any) =>
+    `${s.cashier?.nickname ?? s.cashier?.email ?? "—"} · ${new Date(s.started_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}${s.ended_at ? "" : " (открыта)"}`;
+
+  function exportPdf() {
+    const label = PERIODS.find((p) => p.key === period)?.label ?? period;
+    printReportPdf(
+      "Gotti Stuff — отчёт по кассе",
+      `${activeShift ? `Смена: ${shiftLabel(activeShift)}` : `Период: ${label}`} · Сформирован ${new Date().toLocaleString("ru-RU")}`,
+      [
+        {
+          title: "Итоги",
+          head: ["Показатель", "Значение"],
+          rows: [
+            ["Выручка всего", formatUZS(sums.total)],
+            ["Наличными", formatUZS(sums.cash)],
+            ["Картой", formatUZS(sums.card)],
+            ["Чеков", sales.length],
+          ],
+        },
+        {
+          title: "По кассирам",
+          head: ["Кассир", "Чеков", "Наличные", "Карта", "Итого"],
+          rows: Array.from(
+            sales
+              .reduce((m: Map<string, any>, s: any) => {
+                const cur = m.get(s.cashier_name) ?? { cash: 0, card: 0, total: 0, count: 0 };
+                cur.cash += Number(s.cash_amount ?? 0);
+                cur.card += Number(s.card_amount ?? 0);
+                cur.total += Number(s.total ?? 0);
+                cur.count += 1;
+                return m.set(s.cashier_name, cur);
+              }, new Map())
+              .entries(),
+          ).map(([n, v]: any) => [n, v.count, formatUZS(v.cash), formatUZS(v.card), formatUZS(v.total)]),
+        },
+        {
+          title: `Продажи (${sales.length})`,
+          head: ["Дата", "Кассир", "Филиал", "Оплата", "Итого", "Товары"],
+          rows: sales.map((s: any) => [
+            new Date(s.created_at).toLocaleString("ru-RU"),
+            s.cashier_name,
+            s.branches?.name ?? "—",
+            payLabel(s.payment_method),
+            formatUZS(s.total),
+            (s.sale_items ?? [])
+              .map((i: any) => `${i.product_name}${i.variant_size ? ` (${i.variant_size})` : ""} x${i.qty}`)
+              .join(", "),
+          ]),
+        },
+      ],
+    );
+    toast.success("Отчёт открыт — сохраните как PDF");
+  }
+
 
   function exportExcel() {
     if (!sales.length) {
@@ -181,23 +257,50 @@ function AdminDashboard() {
             <h1 className="text-2xl font-bold">Дашборд</h1>
             <p className="text-sm text-muted-foreground">Касса, смены и продажи</p>
           </div>
-          <Button onClick={exportExcel} className="shrink-0">
-            <Download className="w-4 h-4 mr-2" />Скачать Excel
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            <Button onClick={exportPdf} variant="outline" className="shrink-0">
+              <FileText className="w-4 h-4 mr-2" />PDF
+            </Button>
+            <Button onClick={exportExcel} className="shrink-0">
+              <Download className="w-4 h-4 mr-2" />Excel
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {PERIODS.map((p) => (
             <Button
               key={p.key}
               size="sm"
               variant={period === p.key ? "default" : "outline"}
               onClick={() => setPeriod(p.key)}
+              disabled={shiftFilter !== "all"}
             >
               {p.label}
             </Button>
           ))}
+          <select
+            value={shiftFilter}
+            onChange={(e) => { setShiftFilter(e.target.value); if (e.target.value !== "all") setPeriod("30"); }}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm max-w-[320px]"
+          >
+            <option value="all">Все смены</option>
+            {(shifts as any[]).map((s) => (
+              <option key={s.id} value={s.id}>{shiftLabel(s)}</option>
+            ))}
+          </select>
+          {shiftFilter !== "all" && (
+            <Button size="sm" variant="ghost" onClick={() => setShiftFilter("all")}>
+              <X className="w-3 h-3 mr-1" />Сбросить смену
+            </Button>
+          )}
+          {activeShift && (
+            <Button size="sm" variant="outline" onClick={() => setSelected(activeShift.id)}>
+              Детали смены
+            </Button>
+          )}
         </div>
+
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Kpi title="Открытых смен" value={String(openNow.length)} icon={<Clock className="w-5 h-5" />} />
@@ -305,7 +408,7 @@ function AdminDashboard() {
             <div className="text-muted-foreground text-sm">Смен нет</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {shifts.filter((s: any) => s.ended_at).map((s: any) => (
+              {closedShifts.map((s: any) => (
                 <ShiftCard key={s.id} s={s} onOpen={() => setSelected(s.id)} />
               ))}
             </div>
