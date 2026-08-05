@@ -5,11 +5,13 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { formatUZS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X, Download, Wallet } from "lucide-react";
+import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X, Download, Wallet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadWorkbook } from "@/lib/export-excel";
+import { printReportPdf } from "@/lib/export-pdf";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   ssr: false,
