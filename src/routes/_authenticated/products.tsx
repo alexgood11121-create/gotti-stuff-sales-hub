@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { formatUZS } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Package, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Upload, LayoutGrid, Rows3, List, ArrowDownUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-hooks";
 
 export const Route = createFileRoute("/_authenticated/products")({
@@ -133,7 +133,7 @@ function ProductsPage() {
 
       {view === "grid" && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {visible.map((p) => (
+          {visible.map((p: any) => (
             <Card key={p.id} className="p-3">
               <div className="aspect-square rounded bg-muted overflow-hidden mb-2 flex items-center justify-center">
                 {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" className="w-full h-full object-cover" /> : <Package className="w-8 h-8 text-muted-foreground" />}
@@ -157,7 +157,7 @@ function ProductsPage() {
 
       {view === "list" && (
         <div className="space-y-2">
-          {visible.map((p) => (
+          {visible.map((p: any) => (
             <Card key={p.id} className="p-3 flex items-center gap-3">
               <div className="w-14 h-14 shrink-0 rounded bg-muted overflow-hidden flex items-center justify-center">
                 {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" className="w-full h-full object-cover" /> : <Package className="w-6 h-6 text-muted-foreground" />}
@@ -183,7 +183,7 @@ function ProductsPage() {
 
       {view === "compact" && (
         <div className="border border-border rounded-lg divide-y divide-border">
-          {visible.map((p) => (
+          {visible.map((p: any) => (
             <div key={p.id} className="flex items-center gap-3 px-3 py-2">
               <div className="min-w-0 flex-1 truncate text-sm">{p.name}</div>
               <div className="shrink-0 text-xs text-muted-foreground">Ост.: {p.stock}</div>
