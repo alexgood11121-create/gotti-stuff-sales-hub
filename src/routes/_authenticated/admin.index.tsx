@@ -40,6 +40,7 @@ function AdminDashboard() {
   const [selected, setSelected] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>("today");
   const [payFilter, setPayFilter] = useState<PayFilter>("all");
+  const [shiftFilter, setShiftFilter] = useState<string>("all");
 
   const shiftsQ = useQuery({
     queryKey: ["admin-shifts-list"],
@@ -75,7 +76,23 @@ function AdminDashboard() {
     },
   });
 
-  const sales = salesQ.data ?? [];
+  const shifts = shiftsQ.data ?? [];
+  const activeShift = useMemo(
+    () => (shiftFilter === "all" ? null : (shifts as any[]).find((s) => s.id === shiftFilter) ?? null),
+    [shiftFilter, shifts],
+  );
+
+  const sales = useMemo(() => {
+    const all = salesQ.data ?? [];
+    if (!activeShift) return all;
+    const start = new Date(activeShift.started_at).getTime();
+    const end = activeShift.ended_at ? new Date(activeShift.ended_at).getTime() : Date.now();
+    return all.filter((s: any) => {
+      const t = new Date(s.created_at).getTime();
+      return s.cashier_id === activeShift.cashier_id && t >= start && t <= end;
+    });
+  }, [salesQ.data, activeShift]);
+
   const sums = useMemo(() => {
     return sales.reduce(
       (acc: any, s: any) => {
@@ -89,10 +106,67 @@ function AdminDashboard() {
     );
   }, [sales]);
 
-  const filteredSales = payFilter === "all" ? sales : sales.filter((s: any) => s.payment_method === payFilter);
+  const filteredSales = useMemo(
+    () => (payFilter === "all" ? sales : sales.filter((s: any) => s.payment_method === payFilter)),
+    [sales, payFilter],
+  );
 
-  const shifts = shiftsQ.data ?? [];
-  const openNow = shifts.filter((s: any) => !s.ended_at);
+  const openNow = useMemo(() => (shifts as any[]).filter((s) => !s.ended_at), [shifts]);
+  const closedShifts = useMemo(() => (shifts as any[]).filter((s) => s.ended_at), [shifts]);
+  const shiftLabel = (s: any) =>
+    `${s.cashier?.nickname ?? s.cashier?.email ?? "—"} · ${new Date(s.started_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}${s.ended_at ? "" : " (открыта)"}`;
+
+  function exportPdf() {
+    const label = PERIODS.find((p) => p.key === period)?.label ?? period;
+    printReportPdf(
+      "Gotti Stuff — отчёт по кассе",
+      `${activeShift ? `Смена: ${shiftLabel(activeShift)}` : `Период: ${label}`} · Сформирован ${new Date().toLocaleString("ru-RU")}`,
+      [
+        {
+          title: "Итоги",
+          head: ["Показатель", "Значение"],
+          rows: [
+            ["Выручка всего", formatUZS(sums.total)],
+            ["Наличными", formatUZS(sums.cash)],
+            ["Картой", formatUZS(sums.card)],
+            ["Чеков", sales.length],
+          ],
+        },
+        {
+          title: "По кассирам",
+          head: ["Кассир", "Чеков", "Наличные", "Карта", "Итого"],
+          rows: Array.from(
+            sales
+              .reduce((m: Map<string, any>, s: any) => {
+                const cur = m.get(s.cashier_name) ?? { cash: 0, card: 0, total: 0, count: 0 };
+                cur.cash += Number(s.cash_amount ?? 0);
+                cur.card += Number(s.card_amount ?? 0);
+                cur.total += Number(s.total ?? 0);
+                cur.count += 1;
+                return m.set(s.cashier_name, cur);
+              }, new Map())
+              .entries(),
+          ).map(([n, v]: any) => [n, v.count, formatUZS(v.cash), formatUZS(v.card), formatUZS(v.total)]),
+        },
+        {
+          title: `Продажи (${sales.length})`,
+          head: ["Дата", "Кассир", "Филиал", "Оплата", "Итого", "Товары"],
+          rows: sales.map((s: any) => [
+            new Date(s.created_at).toLocaleString("ru-RU"),
+            s.cashier_name,
+            s.branches?.name ?? "—",
+            payLabel(s.payment_method),
+            formatUZS(s.total),
+            (s.sale_items ?? [])
+              .map((i: any) => `${i.product_name}${i.variant_size ? ` (${i.variant_size})` : ""} x${i.qty}`)
+              .join(", "),
+          ]),
+        },
+      ],
+    );
+    toast.success("Отчёт открыт — сохраните как PDF");
+  }
+
 
   function exportExcel() {
     if (!sales.length) {
