@@ -205,31 +205,39 @@ function ProductsPage() {
 }
 
 
-interface SizeRow { size: string; sale_price: string; cost_price: string }
+interface SizeRow { size: string; sale_price: string; cost_price: string; cup_type_id: string }
 
 function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
   const [name, setName] = useState("");
   const [cost, setCost] = useState("");
   const [sale, setSale] = useState("");
   const [cat, setCat] = useState<string>("");
+  const [cup, setCup] = useState<string>("");
+  const [cupTypes, setCupTypes] = useState<any[]>([]);
   const [imageUrl, setImageUrl] = useState<string>("");
   const [sizes, setSizes] = useState<SizeRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    refreshCupTypes().then(setCupTypes).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (editing) {
       setName(editing.name); setCost(String(editing.cost_price));
       setSale(String(editing.sale_price)); setCat(editing.category_id ?? "");
+      setCup(editing.cup_type_id ?? "");
       setImageUrl(editing.image_url ?? "");
       const s = Array.isArray(editing.sizes) ? editing.sizes : [];
       setSizes(s.map((x: any) => ({
         size: String(x.size ?? ""),
         sale_price: String(x.sale_price ?? ""),
         cost_price: x.cost_price != null ? String(x.cost_price) : "",
+        cup_type_id: x.cup_type_id ?? "",
       })));
     } else {
-      setName(""); setCost(""); setSale(""); setCat(""); setImageUrl(""); setSizes([]);
+      setName(""); setCost(""); setSale(""); setCat(""); setCup(""); setImageUrl(""); setSizes([]);
     }
   }, [editing, open]);
 
