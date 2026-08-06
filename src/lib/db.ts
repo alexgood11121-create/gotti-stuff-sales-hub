@@ -4,6 +4,7 @@ export interface ProductSize {
   size: string;
   sale_price: number;
   cost_price?: number;
+  cup_type_id?: string | null;
 }
 
 export interface CachedProduct {
@@ -17,7 +18,38 @@ export interface CachedProduct {
   is_active: boolean;
   sizes: ProductSize[];
   sales_count: number;
+  cup_type_id?: string | null;
 }
+
+export interface CachedCupType {
+  id: string;
+  name: string;
+  material: string;
+  volume_ml: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface CachedShiftCup {
+  id: string;
+  shift_id: string;
+  cup_type_id: string;
+  issued_qty: number;
+  counted_qty: number | null;
+  updated_at: string;
+}
+
+export interface PendingCupCount {
+  id: string;
+  shift_id: string;
+  cup_type_id: string;
+  counted_qty: number;
+  created_at: string;
+  synced: number;
+  attempts: number;
+  last_error?: string;
+}
+
 
 export interface CachedCategory {
   id: string;
