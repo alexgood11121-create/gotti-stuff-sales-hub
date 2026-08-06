@@ -4,6 +4,7 @@ export interface ProductSize {
   size: string;
   sale_price: number;
   cost_price?: number;
+  cup_type_id?: string | null;
 }
 
 export interface CachedProduct {
@@ -17,7 +18,38 @@ export interface CachedProduct {
   is_active: boolean;
   sizes: ProductSize[];
   sales_count: number;
+  cup_type_id?: string | null;
 }
+
+export interface CachedCupType {
+  id: string;
+  name: string;
+  material: string;
+  volume_ml: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface CachedShiftCup {
+  id: string;
+  shift_id: string;
+  cup_type_id: string;
+  issued_qty: number;
+  counted_qty: number | null;
+  updated_at: string;
+}
+
+export interface PendingCupCount {
+  id: string;
+  shift_id: string;
+  cup_type_id: string;
+  counted_qty: number;
+  created_at: string;
+  synced: number;
+  attempts: number;
+  last_error?: string;
+}
+
 
 export interface CachedCategory {
   id: string;
@@ -140,6 +172,9 @@ class GottiDB extends Dexie {
   shifts!: Table<CachedShift, string>;
   sales!: Table<CachedSale, string>;
   saleItems!: Table<CachedSaleItem, string>;
+  cupTypes!: Table<CachedCupType, string>;
+  shiftCups!: Table<CachedShiftCup, string>;
+  pendingCupCounts!: Table<PendingCupCount, string>;
 
   constructor() {
     super("gotti-stuff-db");
@@ -185,6 +220,20 @@ class GottiDB extends Dexie {
       shifts: "id, cashier_id, synced, started_at, ended_at",
       sales: "id, created_at, cashier_id, branch_id, pending, client_uuid",
       saleItems: "id, sale_id",
+    });
+    this.version(7).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+      parked: "id, created_at",
+      authUsers: "id, email, nickname, role",
+      pendingStockMovements: "id, type, synced, created_at, product_id, user_id",
+      shifts: "id, cashier_id, synced, started_at, ended_at",
+      sales: "id, created_at, cashier_id, branch_id, pending, client_uuid",
+      saleItems: "id, sale_id",
+      cupTypes: "id, sort_order, name",
+      shiftCups: "id, shift_id, cup_type_id",
+      pendingCupCounts: "id, synced, shift_id",
     });
   }
 }

@@ -5,6 +5,7 @@ import { ensureOnlineBackendSession } from "@/lib/offline-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { syncPendingStockMovements } from "@/lib/offline-ops";
 import { cachePendingSale, dropPendingSaleCache, syncReceiptsCache } from "@/lib/receipts-cache";
+import { refreshCupTypes, syncPendingCupCounts } from "@/lib/cups";
 
 export async function queueSaleOffline(payload: Omit<PendingSale, "client_uuid" | "created_at" | "synced" | "attempts"> & { client_uuid?: string }) {
   const client_uuid = payload.client_uuid ?? uuidv4();
@@ -99,15 +100,17 @@ export async function syncPendingShifts(): Promise<{ synced: number; failed: num
 }
 
 export async function syncEverything(): Promise<{ synced: number; failed: number }> {
-  const [sales, movements, shifts] = await Promise.all([
+  const [sales, movements, shifts, cups] = await Promise.all([
     syncPendingSales(),
     syncPendingStockMovements(),
     syncPendingShifts(),
+    syncPendingCupCounts(),
   ]);
   void syncReceiptsCache();
+  void refreshCupTypes();
   return {
-    synced: sales.synced + movements.synced + shifts.synced,
-    failed: sales.failed + movements.failed + shifts.failed,
+    synced: sales.synced + movements.synced + shifts.synced + cups.synced,
+    failed: sales.failed + movements.failed + shifts.failed + cups.failed,
   };
 }
 

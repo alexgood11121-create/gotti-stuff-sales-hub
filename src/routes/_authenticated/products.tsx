@@ -11,6 +11,7 @@ import { formatUZS } from "@/lib/format";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Package, Upload, LayoutGrid, Rows3, List, ArrowDownUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-hooks";
+import { refreshCupTypes } from "@/lib/cups";
 
 export const Route = createFileRoute("/_authenticated/products")({
   ssr: false,
@@ -205,31 +206,39 @@ function ProductsPage() {
 }
 
 
-interface SizeRow { size: string; sale_price: string; cost_price: string }
+interface SizeRow { size: string; sale_price: string; cost_price: string; cup_type_id: string }
 
 function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
   const [name, setName] = useState("");
   const [cost, setCost] = useState("");
   const [sale, setSale] = useState("");
   const [cat, setCat] = useState<string>("");
+  const [cup, setCup] = useState<string>("");
+  const [cupTypes, setCupTypes] = useState<any[]>([]);
   const [imageUrl, setImageUrl] = useState<string>("");
   const [sizes, setSizes] = useState<SizeRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    refreshCupTypes().then(setCupTypes).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (editing) {
       setName(editing.name); setCost(String(editing.cost_price));
       setSale(String(editing.sale_price)); setCat(editing.category_id ?? "");
+      setCup(editing.cup_type_id ?? "");
       setImageUrl(editing.image_url ?? "");
       const s = Array.isArray(editing.sizes) ? editing.sizes : [];
       setSizes(s.map((x: any) => ({
         size: String(x.size ?? ""),
         sale_price: String(x.sale_price ?? ""),
         cost_price: x.cost_price != null ? String(x.cost_price) : "",
+        cup_type_id: x.cup_type_id ?? "",
       })));
     } else {
-      setName(""); setCost(""); setSale(""); setCat(""); setImageUrl(""); setSizes([]);
+      setName(""); setCost(""); setSale(""); setCat(""); setCup(""); setImageUrl(""); setSizes([]);
     }
   }, [editing, open]);
 
@@ -253,7 +262,7 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
   function updateSize(i: number, patch: Partial<SizeRow>) {
     setSizes((rows) => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   }
-  function addSize() { setSizes((r) => [...r, { size: "", sale_price: "", cost_price: "" }]); }
+  function addSize() { setSizes((r) => [...r, { size: "", sale_price: "", cost_price: "", cup_type_id: "" }]); }
   function removeSize(i: number) { setSizes((r) => r.filter((_, idx) => idx !== i)); }
 
   async function submit(e: React.FormEvent) {
@@ -265,10 +274,12 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
         size: s.size.trim(),
         sale_price: Number(s.sale_price),
         ...(s.cost_price !== "" ? { cost_price: Number(s.cost_price) } : {}),
+        cup_type_id: s.cup_type_id || null,
       }));
     const payload = {
       name, cost_price: Number(cost), sale_price: Number(sale),
       category_id: cat || null, image_url: imageUrl || null,
+      cup_type_id: cup || null,
       sizes: cleanSizes,
     };
     const q = editing
@@ -313,6 +324,15 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <Label>Стакан (по умолчанию)</Label>
+            <Select value={cup} onValueChange={setCup}>
+              <SelectTrigger><SelectValue placeholder="Без стакана" /></SelectTrigger>
+              <SelectContent>
+                {cupTypes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-2 border-t border-border pt-3">
             <div className="flex items-center justify-between">
@@ -327,7 +347,7 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
               </div>
             )}
             {sizes.map((s, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_1.2fr_auto] gap-2 items-end">
                 <div>
                   <Label className="text-xs">Размер</Label>
                   <Input value={s.size} onChange={(e) => updateSize(i, { size: e.target.value })} placeholder="S / 0.5л" />
@@ -340,12 +360,23 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
                   <Label className="text-xs">Закуп (опц.)</Label>
                   <Input type="number" value={s.cost_price} onChange={(e) => updateSize(i, { cost_price: e.target.value })} />
                 </div>
+                <div>
+                  <Label className="text-xs">Стакан</Label>
+                  <Select value={s.cup_type_id} onValueChange={(v) => updateSize(i, { cup_type_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      {cupTypes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button type="button" size="icon" variant="ghost" onClick={() => removeSize(i)}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             ))}
           </div>
+
+
 
           <Button type="submit" className="w-full" disabled={busy}>Сохранить</Button>
         </form>

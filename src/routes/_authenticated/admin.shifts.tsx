@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Clock, Plus, Trash2, Calendar } from "lucide-react";
+import { Clock, Plus, Trash2, Calendar, CupSoda } from "lucide-react";
+import { buildCupRows, issueCups, refreshCupTypes, refreshShiftCups, type CupUsageRow } from "@/lib/cups";
 import { useAuth } from "@/lib/auth-hooks";
 import { listShifts } from "@/lib/shifts.functions";
 import { listSchedules, createSchedule, deleteSchedule } from "@/lib/schedules.functions";
@@ -241,9 +242,73 @@ function ActualTab() {
               <div className="text-xs text-muted-foreground">Часы</div>
               <div className="text-lg font-bold text-primary">{fmtDur(r.duration_minutes)}</div>
             </div>
+            <CupsForShift shift={r} />
           </Card>
         ))}
       </div>
     </div>
   );
 }
+
+function CupsForShift({ shift }: { shift: any }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<CupUsageRow[]>([]);
+  const [issued, setIssued] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    await refreshCupTypes();
+    await refreshShiftCups(shift.id);
+    const list = await buildCupRows({
+      shiftId: shift.id,
+      cashierId: shift.cashier_id ?? null,
+      startedAt: shift.started_at,
+      endedAt: shift.ended_at,
+    });
+    setRows(list);
+    setIssued(Object.fromEntries(list.map((r) => [r.cup.id, String(r.issued)])));
+  }
+
+  async function save() {
+    setBusy(true);
+    try {
+      await issueCups(shift.id, Object.fromEntries(Object.entries(issued).map(([k, v]) => [k, Number(v) || 0])));
+      toast.success("Стаканы выданы");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Ошибка");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) load(); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm"><CupSoda className="w-4 h-4 mr-1" />Стаканы</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Стаканы на смену</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          {rows.map((r) => (
+            <div key={r.cup.id} className="grid grid-cols-[1fr_90px] items-end gap-3">
+              <div>
+                <div className="font-medium">{r.cup.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  Использовано: {r.used} · Остаток: {r.left} · Факт: {r.counted ?? "—"}
+                  {r.diff != null && r.diff !== 0 ? ` · Расхождение: ${r.diff}` : ""}
+                </div>
+              </div>
+              <Input
+                type="number"
+                value={issued[r.cup.id] ?? ""}
+                onChange={(e) => setIssued((s) => ({ ...s, [r.cup.id]: e.target.value }))}
+              />
+            </div>
+          ))}
+          {rows.length === 0 && <div className="text-sm text-muted-foreground">Типы стаканов не найдены</div>}
+          {rows.length > 0 && <Button className="w-full" disabled={busy} onClick={save}>Сохранить выдачу</Button>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

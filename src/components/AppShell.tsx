@@ -22,6 +22,7 @@ import {
   Clock,
   Play,
   Square,
+  CupSoda,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ const items: Item[] = [
   { to: "/income", label: "Приход", icon: <ArrowDownCircle className="w-5 h-5" /> },
   { to: "/expense", label: "Расход", icon: <ArrowUpCircle className="w-5 h-5" /> },
   { to: "/products", label: "Товары", icon: <Package className="w-5 h-5" />, adminOnly: true },
+  { to: "/cups", label: "Стаканы", icon: <CupSoda className="w-5 h-5" /> },
   { to: "/reports", label: "Отчёты", icon: <BarChart3 className="w-5 h-5" /> },
   { to: "/admin", label: "Дашборд", icon: <LayoutDashboard className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/branches", label: "Филиалы", icon: <Store className="w-5 h-5" />, adminOnly: true },
