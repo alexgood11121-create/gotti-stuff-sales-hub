@@ -11,6 +11,7 @@ import { formatUZS } from "@/lib/format";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Package, Upload, LayoutGrid, Rows3, List, ArrowDownUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-hooks";
+import { refreshCupTypes } from "@/lib/cups";
 
 export const Route = createFileRoute("/_authenticated/products")({
   ssr: false,
