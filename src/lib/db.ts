@@ -172,6 +172,9 @@ class GottiDB extends Dexie {
   shifts!: Table<CachedShift, string>;
   sales!: Table<CachedSale, string>;
   saleItems!: Table<CachedSaleItem, string>;
+  cupTypes!: Table<CachedCupType, string>;
+  shiftCups!: Table<CachedShiftCup, string>;
+  pendingCupCounts!: Table<PendingCupCount, string>;
 
   constructor() {
     super("gotti-stuff-db");
