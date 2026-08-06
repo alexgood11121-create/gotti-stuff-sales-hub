@@ -324,6 +324,15 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
               </SelectContent>
             </Select>
           </div>
+          <div>
+            <Label>Стакан (по умолчанию)</Label>
+            <Select value={cup} onValueChange={setCup}>
+              <SelectTrigger><SelectValue placeholder="Без стакана" /></SelectTrigger>
+              <SelectContent>
+                {cupTypes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-2 border-t border-border pt-3">
             <div className="flex items-center justify-between">
@@ -338,7 +347,7 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
               </div>
             )}
             {sizes.map((s, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_1.2fr_auto] gap-2 items-end">
                 <div>
                   <Label className="text-xs">Размер</Label>
                   <Input value={s.size} onChange={(e) => updateSize(i, { size: e.target.value })} placeholder="S / 0.5л" />
@@ -351,11 +360,22 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
                   <Label className="text-xs">Закуп (опц.)</Label>
                   <Input type="number" value={s.cost_price} onChange={(e) => updateSize(i, { cost_price: e.target.value })} />
                 </div>
+                <div>
+                  <Label className="text-xs">Стакан</Label>
+                  <Select value={s.cup_type_id} onValueChange={(v) => updateSize(i, { cup_type_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      {cupTypes.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button type="button" size="icon" variant="ghost" onClick={() => removeSize(i)}>
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
             ))}
+          </div>
+
           </div>
 
           <Button type="submit" className="w-full" disabled={busy}>Сохранить</Button>
