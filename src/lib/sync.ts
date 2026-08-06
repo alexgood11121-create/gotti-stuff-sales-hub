@@ -99,15 +99,17 @@ export async function syncPendingShifts(): Promise<{ synced: number; failed: num
 }
 
 export async function syncEverything(): Promise<{ synced: number; failed: number }> {
-  const [sales, movements, shifts] = await Promise.all([
+  const [sales, movements, shifts, cups] = await Promise.all([
     syncPendingSales(),
     syncPendingStockMovements(),
     syncPendingShifts(),
+    syncPendingCupCounts(),
   ]);
   void syncReceiptsCache();
+  void refreshCupTypes();
   return {
-    synced: sales.synced + movements.synced + shifts.synced,
-    failed: sales.failed + movements.failed + shifts.failed,
+    synced: sales.synced + movements.synced + shifts.synced + cups.synced,
+    failed: sales.failed + movements.failed + shifts.failed + cups.failed,
   };
 }
 
