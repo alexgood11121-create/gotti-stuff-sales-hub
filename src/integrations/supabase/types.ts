@@ -56,6 +56,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cup_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          material: string
+          name: string
+          sort_order: number
+          volume_ml: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          material?: string
+          name: string
+          sort_order?: number
+          volume_ml?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          material?: string
+          name?: string
+          sort_order?: number
+          volume_ml?: number
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string
@@ -147,6 +177,7 @@ export type Database = {
           category_id: string | null
           cost_price: number
           created_at: string
+          cup_type_id: string | null
           id: string
           image_url: string | null
           is_active: boolean
@@ -160,6 +191,7 @@ export type Database = {
           category_id?: string | null
           cost_price?: number
           created_at?: string
+          cup_type_id?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -173,6 +205,7 @@ export type Database = {
           category_id?: string | null
           cost_price?: number
           created_at?: string
+          cup_type_id?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -188,6 +221,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_cup_type_id_fkey"
+            columns: ["cup_type_id"]
+            isOneToOne: false
+            referencedRelation: "cup_types"
             referencedColumns: ["id"]
           },
         ]
@@ -324,6 +364,51 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_cups: {
+        Row: {
+          counted_qty: number | null
+          created_at: string
+          cup_type_id: string
+          id: string
+          issued_qty: number
+          shift_id: string
+          updated_at: string
+        }
+        Insert: {
+          counted_qty?: number | null
+          created_at?: string
+          cup_type_id: string
+          id?: string
+          issued_qty?: number
+          shift_id: string
+          updated_at?: string
+        }
+        Update: {
+          counted_qty?: number | null
+          created_at?: string
+          cup_type_id?: string
+          id?: string
+          issued_qty?: number
+          shift_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_cups_cup_type_id_fkey"
+            columns: ["cup_type_id"]
+            isOneToOne: false
+            referencedRelation: "cup_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_cups_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
             referencedColumns: ["id"]
           },
         ]
