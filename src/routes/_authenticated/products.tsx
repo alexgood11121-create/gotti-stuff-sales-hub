@@ -261,7 +261,7 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
   function updateSize(i: number, patch: Partial<SizeRow>) {
     setSizes((rows) => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   }
-  function addSize() { setSizes((r) => [...r, { size: "", sale_price: "", cost_price: "" }]); }
+  function addSize() { setSizes((r) => [...r, { size: "", sale_price: "", cost_price: "", cup_type_id: "" }]); }
   function removeSize(i: number) { setSizes((r) => r.filter((_, idx) => idx !== i)); }
 
   async function submit(e: React.FormEvent) {
@@ -273,10 +273,12 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
         size: s.size.trim(),
         sale_price: Number(s.sale_price),
         ...(s.cost_price !== "" ? { cost_price: Number(s.cost_price) } : {}),
+        cup_type_id: s.cup_type_id || null,
       }));
     const payload = {
       name, cost_price: Number(cost), sale_price: Number(sale),
       category_id: cat || null, image_url: imageUrl || null,
+      cup_type_id: cup || null,
       sizes: cleanSizes,
     };
     const q = editing
