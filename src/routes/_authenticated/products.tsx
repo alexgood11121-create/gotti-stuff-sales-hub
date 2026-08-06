@@ -376,7 +376,7 @@ function ProductDialog({ open, onOpenChange, editing, cats, onDone }: any) {
             ))}
           </div>
 
-          </div>
+
 
           <Button type="submit" className="w-full" disabled={busy}>Сохранить</Button>
         </form>
