@@ -5,6 +5,7 @@ import { ensureOnlineBackendSession } from "@/lib/offline-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { syncPendingStockMovements } from "@/lib/offline-ops";
 import { cachePendingSale, dropPendingSaleCache, syncReceiptsCache } from "@/lib/receipts-cache";
+import { refreshCupTypes, syncPendingCupCounts } from "@/lib/cups";
 
 export async function queueSaleOffline(payload: Omit<PendingSale, "client_uuid" | "created_at" | "synced" | "attempts"> & { client_uuid?: string }) {
   const client_uuid = payload.client_uuid ?? uuidv4();
