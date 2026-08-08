@@ -51,6 +51,15 @@ export interface PendingCupCount {
 }
 
 
+export interface CachedCupAllocation {
+  id: string;
+  branch_id: string | null;
+  cashier_id: string;
+  for_date: string;
+  cup_type_id: string;
+  qty: number;
+}
+
 export interface CachedCategory {
   id: string;
   name: string;
@@ -175,6 +184,7 @@ class GottiDB extends Dexie {
   cupTypes!: Table<CachedCupType, string>;
   shiftCups!: Table<CachedShiftCup, string>;
   pendingCupCounts!: Table<PendingCupCount, string>;
+  cupAllocations!: Table<CachedCupAllocation, string>;
 
   constructor() {
     super("gotti-stuff-db");
