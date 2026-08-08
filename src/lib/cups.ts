@@ -5,6 +5,7 @@ import {
   type CachedShiftCup,
   type PendingCupCount,
   type ProductSize,
+  type CachedCupAllocation,
 } from "@/lib/db";
 
 // Учёт стаканов: типы и выдача кэшируются локально, расход считается
@@ -216,4 +217,143 @@ export async function buildCupRows(opts: {
     const counted = sc?.counted_qty ?? null;
     return { cup, issued, used: u, left, counted, diff: counted == null ? null : counted - left };
   });
+}
+
+// ---------- Типы стаканов: управление (админ) ----------
+
+export async function listAllCupTypes(): Promise<CachedCupType[]> {
+  if (isOnline()) {
+    try {
+      const { data } = await supabase
+        .from("cup_types")
+        .select("id,name,material,volume_ml,sort_order,is_active")
+        .order("sort_order");
+      if (data) {
+        return data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          material: c.material,
+          volume_ml: Number(c.volume_ml ?? 0),
+          sort_order: Number(c.sort_order ?? 0),
+          is_active: !!c.is_active,
+        }));
+      }
+    } catch { /* офлайн */ }
+  }
+  return db.cupTypes.toArray();
+}
+
+export async function saveCupType(input: {
+  id?: string;
+  name: string;
+  material: string;
+  volume_ml: number;
+  sort_order?: number;
+  is_active?: boolean;
+}) {
+  const payload: any = {
+    name: input.name,
+    material: input.material,
+    volume_ml: Number(input.volume_ml) || 0,
+    sort_order: Number(input.sort_order ?? 0),
+    is_active: input.is_active ?? true,
+  };
+  if (input.id) payload.id = input.id;
+  const { error } = await supabase.from("cup_types").upsert(payload);
+  if (error) throw error;
+  await refreshCupTypes();
+}
+
+export async function deactivateCupType(id: string) {
+  const { error } = await supabase.from("cup_types").update({ is_active: false }).eq("id", id);
+  if (error) throw error;
+  await refreshCupTypes();
+}
+
+// ---------- Выдача стаканов до открытия смены ----------
+
+export function todayKey(d = new Date()) {
+  const tz = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return tz.toISOString().slice(0, 10);
+}
+
+export async function listAllocations(cashierId: string, forDate: string): Promise<CachedCupAllocation[]> {
+  if (isOnline()) {
+    try {
+      const { data } = await supabase
+        .from("cup_allocations")
+        .select("id,branch_id,cashier_id,for_date,cup_type_id,qty")
+        .eq("cashier_id", cashierId)
+        .eq("for_date", forDate);
+      if (data) {
+        const rows: CachedCupAllocation[] = data.map((r: any) => ({
+          id: r.id,
+          branch_id: r.branch_id ?? null,
+          cashier_id: r.cashier_id,
+          for_date: r.for_date,
+          cup_type_id: r.cup_type_id,
+          qty: Number(r.qty ?? 0),
+        }));
+        const old = await db.cupAllocations.where("cashier_id").equals(cashierId).toArray();
+        const drop = old.filter((o) => o.for_date === forDate).map((o) => o.id);
+        if (drop.length) await db.cupAllocations.bulkDelete(drop);
+        await db.cupAllocations.bulkPut(rows);
+        return rows;
+      }
+    } catch { /* офлайн */ }
+  }
+  const all = await db.cupAllocations.where("cashier_id").equals(cashierId).toArray();
+  return all.filter((a) => a.for_date === forDate);
+}
+
+/** Админ сохраняет заготовку выдачи на кассира и дату. */
+export async function saveAllocations(opts: {
+  cashierId: string;
+  branchId: string | null;
+  forDate: string;
+  qtyByCup: Record<string, number>;
+}) {
+  const payload = Object.entries(opts.qtyByCup).map(([cup_type_id, qty]) => ({
+    cashier_id: opts.cashierId,
+    branch_id: opts.branchId,
+    for_date: opts.forDate,
+    cup_type_id,
+    qty: Number(qty) || 0,
+  }));
+  if (!payload.length) return;
+  const { error } = await supabase
+    .from("cup_allocations")
+    .upsert(payload as any, { onConflict: "cashier_id,for_date,cup_type_id" });
+  if (error) throw error;
+  await listAllocations(opts.cashierId, opts.forDate);
+}
+
+/** При открытии смены переносим заготовку выдачи в shift_cups. */
+export async function applyAllocationsToShift(shiftId: string, cashierId: string, forDate = todayKey()) {
+  try {
+    const rows = await listAllocations(cashierId, forDate);
+    if (!rows.length) return;
+    if (!isOnline()) {
+      const now = new Date().toISOString();
+      for (const r of rows) {
+        await db.shiftCups.put({
+          id: `local:${shiftId}:${r.cup_type_id}`,
+          shift_id: shiftId,
+          cup_type_id: r.cup_type_id,
+          issued_qty: r.qty,
+          counted_qty: null,
+          updated_at: now,
+        });
+      }
+      return;
+    }
+    const existing = await supabase.from("shift_cups").select("cup_type_id,issued_qty").eq("shift_id", shiftId);
+    const already = new Set((existing.data ?? []).filter((r: any) => Number(r.issued_qty) > 0).map((r: any) => r.cup_type_id));
+    const payload = rows
+      .filter((r) => !already.has(r.cup_type_id))
+      .map((r) => ({ shift_id: shiftId, cup_type_id: r.cup_type_id, issued_qty: r.qty }));
+    if (!payload.length) return;
+    await supabase.from("shift_cups").upsert(payload as any, { onConflict: "shift_id,cup_type_id" });
+    await refreshShiftCups(shiftId);
+  } catch { /* не критично */ }
 }
