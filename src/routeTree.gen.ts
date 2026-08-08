@@ -26,6 +26,7 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminShiftsRouteImport } from './routes/_authenticated/admin.shifts'
+import { Route as AuthenticatedAdminCupsRouteImport } from './routes/_authenticated/admin.cups'
 import { Route as AuthenticatedAdminCashiersRouteImport } from './routes/_authenticated/admin.cashiers'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/admin.branches'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
@@ -118,6 +119,11 @@ const AuthenticatedAdminShiftsRoute =
     path: '/shifts',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminCupsRoute = AuthenticatedAdminCupsRouteImport.update({
+  id: '/cups',
+  path: '/cups',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminCashiersRoute =
   AuthenticatedAdminCashiersRouteImport.update({
     id: '/cashiers',
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/cashiers': typeof AuthenticatedAdminCashiersRoute
+  '/admin/cups': typeof AuthenticatedAdminCupsRoute
   '/admin/shifts': typeof AuthenticatedAdminShiftsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/admin/cashiers': typeof AuthenticatedAdminCashiersRoute
+  '/admin/cups': typeof AuthenticatedAdminCupsRoute
   '/admin/shifts': typeof AuthenticatedAdminShiftsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/admin/cashiers': typeof AuthenticatedAdminCashiersRoute
+  '/_authenticated/admin/cups': typeof AuthenticatedAdminCupsRoute
   '/_authenticated/admin/shifts': typeof AuthenticatedAdminShiftsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/branches'
     | '/admin/cashiers'
+    | '/admin/cups'
     | '/admin/shifts'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -251,6 +261,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/branches'
     | '/admin/cashiers'
+    | '/admin/cups'
     | '/admin/shifts'
     | '/admin'
   id:
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/admin/branches'
     | '/_authenticated/admin/cashiers'
+    | '/_authenticated/admin/cups'
     | '/_authenticated/admin/shifts'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
@@ -410,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminShiftsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/cups': {
+      id: '/_authenticated/admin/cups'
+      path: '/cups'
+      fullPath: '/admin/cups'
+      preLoaderRoute: typeof AuthenticatedAdminCupsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/cashiers': {
       id: '/_authenticated/admin/cashiers'
       path: '/cashiers'
@@ -444,6 +463,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminCashiersRoute: typeof AuthenticatedAdminCashiersRoute
+  AuthenticatedAdminCupsRoute: typeof AuthenticatedAdminCupsRoute
   AuthenticatedAdminShiftsRoute: typeof AuthenticatedAdminShiftsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -451,6 +471,7 @@ interface AuthenticatedAdminRouteChildren {
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminCashiersRoute: AuthenticatedAdminCashiersRoute,
+  AuthenticatedAdminCupsRoute: AuthenticatedAdminCupsRoute,
   AuthenticatedAdminShiftsRoute: AuthenticatedAdminShiftsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }

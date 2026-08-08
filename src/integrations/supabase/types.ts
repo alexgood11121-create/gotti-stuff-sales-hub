@@ -56,6 +56,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cup_allocations: {
+        Row: {
+          branch_id: string | null
+          cashier_id: string
+          created_at: string
+          created_by: string | null
+          cup_type_id: string
+          for_date: string
+          id: string
+          qty: number
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          cashier_id: string
+          created_at?: string
+          created_by?: string | null
+          cup_type_id: string
+          for_date?: string
+          id?: string
+          qty?: number
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          cashier_id?: string
+          created_at?: string
+          created_by?: string | null
+          cup_type_id?: string
+          for_date?: string
+          id?: string
+          qty?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cup_allocations_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cup_allocations_cup_type_id_fkey"
+            columns: ["cup_type_id"]
+            isOneToOne: false
+            referencedRelation: "cup_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cup_types: {
         Row: {
           created_at: string

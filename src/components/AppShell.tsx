@@ -37,6 +37,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  applyAllocationsToShift,
+  buildCupRows,
+  refreshCupTypes,
+  refreshShiftCups,
+  saveCountedCups,
+  type CupUsageRow,
+} from "@/lib/cups";
 
 interface Item {
   to: string;
@@ -57,6 +65,7 @@ const items: Item[] = [
   { to: "/admin/branches", label: "Филиалы", icon: <Store className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/cashiers", label: "Кассиры", icon: <Users className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/shifts", label: "Смены", icon: <Clock className="w-5 h-5" />, adminOnly: true },
+  { to: "/admin/cups", label: "Стаканы (админ)", icon: <CupSoda className="w-5 h-5" />, adminOnly: true },
   { to: "/settings", label: "Настройки", icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -251,6 +260,9 @@ function ShiftControl({
   const [opening, setOpening] = useState("");
   const [actual, setActual] = useState("");
   const [expected, setExpected] = useState<{ expected: number; opening: number; cashSales: number } | null>(null);
+  const { user } = useAuth();
+  const [cupRows, setCupRows] = useState<CupUsageRow[]>([]);
+  const [cupCounts, setCupCounts] = useState<Record<string, string>>({});
 
   const mins = openShift
     ? Math.max(0, Math.floor((Date.now() - new Date(openShift.started_at).getTime()) / 60000))
@@ -280,6 +292,19 @@ function ShiftControl({
               setExpected(e);
               setActual(String(e.expected));
             } catch { setExpected(null); setActual(""); }
+            try {
+              if (openShift) {
+                await refreshCupTypes();
+                await refreshShiftCups(openShift.id);
+                const rows = await buildCupRows({
+                  shiftId: openShift.id,
+                  cashierId: user?.id ?? null,
+                  startedAt: openShift.started_at,
+                });
+                setCupRows(rows);
+                setCupCounts(Object.fromEntries(rows.map((r) => [r.cup.id, r.counted != null ? String(r.counted) : ""])));
+              }
+            } catch { setCupRows([]); }
             setCloseDlg(true);
           } else {
             setOpening("0");
@@ -313,7 +338,8 @@ function ShiftControl({
                 if (Number.isNaN(v) || v < 0) { toast.error("Введите сумму"); return; }
                 setBusy(true);
                 try {
-                  await startShift({ data: { branch_id: branchId, opening_cash: v } });
+                  const res: any = await startShift({ data: { branch_id: branchId, opening_cash: v } });
+                  if (res?.id && user?.id) await applyAllocationsToShift(res.id, user.id);
                   toast.success("Смена открыта");
                   setOpenDlg(false);
                   await onOpened();
@@ -357,6 +383,36 @@ function ShiftControl({
                 Расхождение: {(Number(actual) - expected.expected).toLocaleString()}
               </div>
             )}
+            {cupRows.length > 0 && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="text-xs font-semibold text-muted-foreground">Пересчёт стаканов</div>
+                {cupRows.map((r) => {
+                  const raw = cupCounts[r.cup.id];
+                  const diff = raw == null || raw === "" ? null : Number(raw) - r.left;
+                  return (
+                    <div key={r.cup.id} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate text-sm">{r.cup.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          выдано {r.issued} · продано {r.used} · остаток {r.left}
+                        </div>
+                      </div>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        className="h-9 w-20"
+                        value={raw ?? ""}
+                        onChange={(e) => setCupCounts((c) => ({ ...c, [r.cup.id]: e.target.value }))}
+                      />
+                      <div className={cn(
+                        "w-10 text-right text-xs",
+                        diff == null ? "text-muted-foreground" : diff === 0 ? "text-primary" : "text-destructive",
+                      )}>{diff == null ? "—" : diff}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <Button
               variant="destructive"
               className="w-full h-11"
@@ -366,6 +422,14 @@ function ShiftControl({
                 if (Number.isNaN(v) || v < 0) { toast.error("Введите сумму"); return; }
                 setBusy(true);
                 try {
+                  if (openShift && cupRows.length) {
+                    const counted: Record<string, number> = {};
+                    for (const r of cupRows) {
+                      const raw = cupCounts[r.cup.id];
+                      if (raw != null && raw !== "") counted[r.cup.id] = Number(raw);
+                    }
+                    if (Object.keys(counted).length) await saveCountedCups(openShift.id, counted);
+                  }
                   await endShift({ data: { closing_cash_actual: v } });
                   toast.success("Смена закрыта");
                   setCloseDlg(false);

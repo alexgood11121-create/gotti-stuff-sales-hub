@@ -51,6 +51,15 @@ export interface PendingCupCount {
 }
 
 
+export interface CachedCupAllocation {
+  id: string;
+  branch_id: string | null;
+  cashier_id: string;
+  for_date: string;
+  cup_type_id: string;
+  qty: number;
+}
+
 export interface CachedCategory {
   id: string;
   name: string;
@@ -175,6 +184,7 @@ class GottiDB extends Dexie {
   cupTypes!: Table<CachedCupType, string>;
   shiftCups!: Table<CachedShiftCup, string>;
   pendingCupCounts!: Table<PendingCupCount, string>;
+  cupAllocations!: Table<CachedCupAllocation, string>;
 
   constructor() {
     super("gotti-stuff-db");
@@ -235,7 +245,23 @@ class GottiDB extends Dexie {
       shiftCups: "id, shift_id, cup_type_id",
       pendingCupCounts: "id, synced, shift_id",
     });
+    this.version(8).stores({
+      products: "id, name, category_id, is_active, sales_count",
+      categories: "id, name",
+      pendingSales: "client_uuid, synced, created_at",
+      parked: "id, created_at",
+      authUsers: "id, email, nickname, role",
+      pendingStockMovements: "id, type, synced, created_at, product_id, user_id",
+      shifts: "id, cashier_id, synced, started_at, ended_at",
+      sales: "id, created_at, cashier_id, branch_id, pending, client_uuid",
+      saleItems: "id, sale_id",
+      cupTypes: "id, sort_order, name",
+      shiftCups: "id, shift_id, cup_type_id",
+      pendingCupCounts: "id, synced, shift_id",
+      cupAllocations: "id, cashier_id, for_date, cup_type_id",
+    });
   }
+
 }
 
 export const db = new GottiDB();
