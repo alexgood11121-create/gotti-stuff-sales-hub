@@ -65,6 +65,7 @@ const items: Item[] = [
   { to: "/admin/branches", label: "Филиалы", icon: <Store className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/cashiers", label: "Кассиры", icon: <Users className="w-5 h-5" />, adminOnly: true },
   { to: "/admin/shifts", label: "Смены", icon: <Clock className="w-5 h-5" />, adminOnly: true },
+  { to: "/admin/cups", label: "Стаканы (админ)", icon: <CupSoda className="w-5 h-5" />, adminOnly: true },
   { to: "/settings", label: "Настройки", icon: <Settings className="w-5 h-5" /> },
 ];
 
