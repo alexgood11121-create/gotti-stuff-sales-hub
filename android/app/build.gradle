@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+// Постоянная подпись: либо keystore из GitHub Secrets, либо ключ в репозитории.
+// Благодаря этому каждая новая сборка ставится поверх старой без конфликта.
+def signingStoreFile = System.getenv("ANDROID_KEYSTORE_PATH") ?: rootProject.file("keystore/gotti-release.jks").absolutePath
+def signingStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "gottistuff"
+def signingKeyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "gotti"
+def signingKeyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: "gottistuff"
+def hasSigningKey = file(signingStoreFile).exists()
+
+def buildNumber = (System.getenv("ANDROID_VERSION_CODE") ?: "1") as Integer
+def buildVersionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
+
 android {
     namespace = "com.gottistuff.pos"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +18,8 @@ android {
         applicationId "com.gottistuff.pos"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode buildNumber
+        versionName buildVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,13 +27,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasSigningKey) {
+            release {
+                storeFile file(signingStoreFile)
+                storePassword signingStorePassword
+                keyAlias signingKeyAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasSigningKey) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
+
 
 repositories {
     flatDir{
