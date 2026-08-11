@@ -121,17 +121,44 @@ jobs:
           ls -la "$PLUGIN_DIR"
 
 
-      - name: Build debug APK
+      - name: Restore signing keystore from secrets (optional)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "No keystore secret set — using repo keystore android/keystore/gotti-release.jks"
+            exit 0
+          fi
+          mkdir -p android/keystore
+          printf '%s' "$KEYSTORE_B64" | base64 -d > android/keystore/ci-release.jks
+          {
+            echo "ANDROID_KEYSTORE_PATH=$PWD/android/keystore/ci-release.jks"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+
+      - name: Build signed release APK
         working-directory: android
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_NAME: 1.0.${{ github.run_number }}
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon assembleDebug --stacktrace
+          ./gradlew --no-daemon assembleRelease --stacktrace
 
       - name: Collect APKs
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/gotti-stuff-${{ github.run_number }}.apk"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/gotti-stuff-latest.apk"
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK" || APK=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          test -f "$APK" || (echo "release APK not found" && exit 1)
+          cp "$APK" "out/gotti-stuff-${{ github.run_number }}.apk"
+          cp "$APK" "out/gotti-stuff-latest.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -158,3 +185,4 @@ jobs:
           files: out/gotti-stuff-${{ github.run_number }}.apk
           fail_on_unmatched_files: true
           prerelease: false
+
