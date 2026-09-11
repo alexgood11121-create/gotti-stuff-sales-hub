@@ -465,14 +465,21 @@ function PayDialog({
           <DialogTitle>Оплата · {formatUZS(total)}</DialogTitle>
         </DialogHeader>
         <Tabs value={method} onValueChange={(v) => setMethod(v as any)}>
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="cash">Наличные</TabsTrigger>
             <TabsTrigger value="card">Карта</TabsTrigger>
             <TabsTrigger value="mixed">Смешанная</TabsTrigger>
+            <TabsTrigger value="debt">Долг</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="space-y-3 pt-2">
-          {(method === "cash" || method === "mixed") && (
+          {method === "debt" && (
+            <div>
+              <label className="text-sm text-muted-foreground">Кто должен (имя)</label>
+              <Input value={debtor} onChange={(e) => setDebtor(e.target.value)} placeholder="Например, Азиз" className="h-12 text-lg" />
+            </div>
+          )}
+          {(method === "cash" || method === "mixed" || method === "debt") && (
             <div>
               <label className="text-sm text-muted-foreground">Наличные (клиент дал)</label>
               <Input type="number" inputMode="numeric" value={cash} onChange={(e) => setCash(e.target.value)} className="h-12 text-lg" />
