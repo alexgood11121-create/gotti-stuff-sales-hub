@@ -303,7 +303,7 @@ function AdminDashboard() {
         </div>
 
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Kpi title="Открытых смен" value={String(openNow.length)} icon={<Clock className="w-5 h-5" />} />
           <Kpi
             title="Выручка за период"
@@ -326,6 +326,13 @@ function AdminDashboard() {
             active={payFilter === "card"}
             onClick={() => setPayFilter("card")}
           />
+          <Kpi
+            title="Долг (не оплачен)"
+            value={formatUZS(sums.debt)}
+            icon={<Wallet className="w-5 h-5" />}
+            active={payFilter === "debt"}
+            onClick={() => setPayFilter("debt")}
+          />
         </div>
 
         <section>
@@ -333,7 +340,7 @@ function AdminDashboard() {
             <h2 className="text-lg font-semibold mr-2 flex items-center gap-2">
               <Wallet className="w-4 h-4" />Касса
             </h2>
-            {(["all", "cash", "card", "mixed"] as PayFilter[]).map((f) => (
+            {(["all", "cash", "card", "mixed", "debt"] as PayFilter[]).map((f) => (
               <Button
                 key={f}
                 size="sm"
