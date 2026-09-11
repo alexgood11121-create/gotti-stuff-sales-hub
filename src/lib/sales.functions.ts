@@ -24,7 +24,9 @@ const saleSchema = z.object({
   card_amount: z.number().nonnegative(),
   given_amount: z.number().nonnegative(),
   change_amount: z.number().nonnegative(),
-  payment_method: z.enum(["cash", "card", "mixed"]),
+  payment_method: z.enum(["cash", "card", "mixed", "debt"]),
+  debt_amount: z.number().nonnegative().optional().default(0),
+  debtor_name: z.string().nullable().optional(),
   items: z.array(saleItemSchema).min(1),
 });
 
@@ -64,6 +66,8 @@ export const submitSale = createServerFn({ method: "POST" })
         given_amount: data.given_amount,
         change_amount: data.change_amount,
         payment_method: data.payment_method,
+        debt_amount: data.debt_amount ?? 0,
+        debtor_name: data.debtor_name ?? null,
         status: "paid",
       })
       .select("id")
