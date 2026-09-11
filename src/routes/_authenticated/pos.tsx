@@ -420,6 +420,7 @@ function PayDialog({
   async function pay() {
     if (!cashierId) return;
     if (insufficient) { toast.error("Недостаточно средств"); return; }
+    if (method === "debt" && !debtor.trim()) { toast.error("Укажите, кто должен"); return; }
     setBusy(true);
     try {
       const client_uuid = await queueSaleOffline({
@@ -431,6 +432,8 @@ function PayDialog({
         given_amount: given,
         change_amount: change,
         payment_method: method,
+        debt_amount: debtAmount,
+        debtor_name: method === "debt" ? debtor.trim() : null,
         items: cart.map((l) => ({
           product_id: l.product_id,
           product_name: l.name,
