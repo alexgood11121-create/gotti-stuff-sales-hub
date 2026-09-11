@@ -507,6 +507,11 @@ function PayDialog({
                 <span>Сдача:</span><span className="font-bold">{formatUZS(change)}</span>
               </div>
             )}
+            {method === "debt" && (
+              <div className="flex justify-between text-destructive text-base pt-1 border-t border-border">
+                <span>В долг:</span><span className="font-bold">{formatUZS(debtAmount)}</span>
+              </div>
+            )}
             {insufficient && <div className="text-destructive text-xs">Недостаточно средств</div>}
           </div>
           <Button className="w-full h-14 text-lg font-bold" onClick={pay} disabled={busy || insufficient}>
