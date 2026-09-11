@@ -373,9 +373,10 @@ function PayDialog({
   cashierId?: string;
   branchId: string | null;
 }) {
-  const [method, setMethod] = useState<"cash" | "card" | "mixed">("cash");
+  const [method, setMethod] = useState<"cash" | "card" | "mixed" | "debt">("cash");
   const [cash, setCash] = useState<string>("");
   const [card, setCard] = useState<string>("");
+  const [debtor, setDebtor] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -383,16 +384,29 @@ function PayDialog({
       setMethod("cash");
       setCash(String(total));
       setCard("");
+      setDebtor("");
     }
   }, [open, total]);
+
+  useEffect(() => {
+    if (method === "debt") setCash("0");
+  }, [method]);
 
   const cashNum = Number(cash) || 0;
 
   let given = 0;
   let cashPaid = 0;
   let cardPaid = 0;
+  let debtAmount = 0;
   if (method === "cash") { given = cashNum; cashPaid = Math.min(cashNum, total); cardPaid = 0; }
   else if (method === "card") { given = total; cashPaid = 0; cardPaid = total; }
+  else if (method === "debt") {
+    // Долг: клиент может внести часть наличными, остальное записывается в долг
+    cashPaid = Math.min(Math.max(0, cashNum), total);
+    cardPaid = 0;
+    debtAmount = Math.max(0, total - cashPaid);
+    given = cashPaid;
+  }
   else {
     // Смешанная: карта автоматически = остаток после наличных
     cashPaid = Math.min(Math.max(0, cashNum), total);
@@ -401,7 +415,7 @@ function PayDialog({
   }
 
   const change = method === "cash" ? Math.max(0, cashNum - total) : 0;
-  const insufficient = method === "mixed" ? false : given < total - 0.01;
+  const insufficient = method === "mixed" || method === "debt" ? false : given < total - 0.01;
 
   async function pay() {
     if (!cashierId) return;
