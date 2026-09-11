@@ -375,6 +375,9 @@ export type Database = {
           change_amount: number
           client_uuid: string
           created_at: string
+          debt_amount: number
+          debt_paid: boolean
+          debtor_name: string | null
           given_amount: number
           id: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -389,6 +392,9 @@ export type Database = {
           change_amount?: number
           client_uuid: string
           created_at?: string
+          debt_amount?: number
+          debt_paid?: boolean
+          debtor_name?: string | null
           given_amount?: number
           id?: string
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -403,6 +409,9 @@ export type Database = {
           change_amount?: number
           client_uuid?: string
           created_at?: string
+          debt_amount?: number
+          debt_paid?: boolean
+          debtor_name?: string | null
           given_amount?: number
           id?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -651,7 +660,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "cashier"
       movement_type: "income" | "expense"
-      payment_method: "cash" | "card" | "mixed"
+      payment_method: "cash" | "card" | "mixed" | "debt"
       sale_status: "open" | "paid" | "cancelled"
     }
     CompositeTypes: {
@@ -782,7 +791,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "cashier"],
       movement_type: ["income", "expense"],
-      payment_method: ["cash", "card", "mixed"],
+      payment_method: ["cash", "card", "mixed", "debt"],
       sale_status: ["open", "paid", "cancelled"],
     },
   },
