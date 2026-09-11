@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { listShifts, getShiftDetails } from "@/lib/shifts.functions";
 import { useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
+
 import { formatUZS } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Clock, TrendingUp, Banknote, CreditCard, ArrowRight, X, Download, Wallet, FileText } from "lucide-react";
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminDashboard,
 });
 
-type PayFilter = "all" | "cash" | "card" | "mixed";
+type PayFilter = "all" | "cash" | "card" | "mixed" | "debt";
 
 const PERIODS = [
   { key: "today", label: "Сегодня", days: 0 },
@@ -35,7 +35,7 @@ function periodStart(key: string) {
 }
 
 function payLabel(m: string) {
-  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : "Смешанная";
+  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : m === "debt" ? "Долг" : "Смешанная";
 }
 
 function AdminDashboard() {
@@ -64,7 +64,7 @@ function AdminDashboard() {
       const from = periodStart(period).toISOString();
       const { data, error } = await supabase
         .from("sales")
-        .select("id, created_at, total, cash_amount, card_amount, payment_method, cashier_id, branch_id, branches(name), sale_items(product_name, variant_size, qty, unit_price, total)")
+        .select("id, created_at, total, cash_amount, card_amount, debt_amount, debtor_name, debt_paid, payment_method, cashier_id, branch_id, branches(name), sale_items(product_name, variant_size, qty, unit_price, total)")
         .gte("created_at", from)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
@@ -101,10 +101,11 @@ function AdminDashboard() {
         acc.total += Number(s.total ?? 0);
         acc.cash += Number(s.cash_amount ?? 0);
         acc.card += Number(s.card_amount ?? 0);
+        if (!s.debt_paid) acc.debt += Number(s.debt_amount ?? 0);
         acc[s.payment_method] = (acc[s.payment_method] ?? 0) + 1;
         return acc;
       },
-      { total: 0, cash: 0, card: 0, cash_n: 0, card_n: 0 },
+      { total: 0, cash: 0, card: 0, debt: 0, cash_n: 0, card_n: 0 },
     );
   }, [sales]);
 
@@ -250,7 +251,7 @@ function AdminDashboard() {
   }
 
   return (
-    <AppShell>
+    <>
       <div className="p-6 h-screen overflow-y-auto space-y-6">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:justify-between">
           <div className="min-w-0">
@@ -302,7 +303,7 @@ function AdminDashboard() {
         </div>
 
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Kpi title="Открытых смен" value={String(openNow.length)} icon={<Clock className="w-5 h-5" />} />
           <Kpi
             title="Выручка за период"
@@ -325,6 +326,13 @@ function AdminDashboard() {
             active={payFilter === "card"}
             onClick={() => setPayFilter("card")}
           />
+          <Kpi
+            title="Долг (не оплачен)"
+            value={formatUZS(sums.debt)}
+            icon={<Wallet className="w-5 h-5" />}
+            active={payFilter === "debt"}
+            onClick={() => setPayFilter("debt")}
+          />
         </div>
 
         <section>
@@ -332,7 +340,7 @@ function AdminDashboard() {
             <h2 className="text-lg font-semibold mr-2 flex items-center gap-2">
               <Wallet className="w-4 h-4" />Касса
             </h2>
-            {(["all", "cash", "card", "mixed"] as PayFilter[]).map((f) => (
+            {(["all", "cash", "card", "mixed", "debt"] as PayFilter[]).map((f) => (
               <Button
                 key={f}
                 size="sm"
@@ -443,7 +451,7 @@ function AdminDashboard() {
           </div>
         </div>
       )}
-    </AppShell>
+    </>
   );
 }
 

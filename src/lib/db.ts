@@ -85,7 +85,9 @@ export interface PendingSale {
   card_amount: number;
   given_amount: number;
   change_amount: number;
-  payment_method: "cash" | "card" | "mixed";
+  payment_method: "cash" | "card" | "mixed" | "debt";
+  debt_amount?: number;
+  debtor_name?: string | null;
   items: PendingSaleItem[];
   created_at: string;
   synced: number;
@@ -149,7 +151,7 @@ export interface CachedSale {
   client_uuid: string | null;
   created_at: string;
   total: number;
-  payment_method: "cash" | "card" | "mixed";
+  payment_method: "cash" | "card" | "mixed" | "debt";
   cash_amount: number;
   card_amount: number;
   cashier_id: string | null;

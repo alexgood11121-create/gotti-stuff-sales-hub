@@ -373,9 +373,10 @@ function PayDialog({
   cashierId?: string;
   branchId: string | null;
 }) {
-  const [method, setMethod] = useState<"cash" | "card" | "mixed">("cash");
+  const [method, setMethod] = useState<"cash" | "card" | "mixed" | "debt">("cash");
   const [cash, setCash] = useState<string>("");
   const [card, setCard] = useState<string>("");
+  const [debtor, setDebtor] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -383,16 +384,29 @@ function PayDialog({
       setMethod("cash");
       setCash(String(total));
       setCard("");
+      setDebtor("");
     }
   }, [open, total]);
+
+  useEffect(() => {
+    if (method === "debt") setCash("0");
+  }, [method]);
 
   const cashNum = Number(cash) || 0;
 
   let given = 0;
   let cashPaid = 0;
   let cardPaid = 0;
+  let debtAmount = 0;
   if (method === "cash") { given = cashNum; cashPaid = Math.min(cashNum, total); cardPaid = 0; }
   else if (method === "card") { given = total; cashPaid = 0; cardPaid = total; }
+  else if (method === "debt") {
+    // Долг: клиент может внести часть наличными, остальное записывается в долг
+    cashPaid = Math.min(Math.max(0, cashNum), total);
+    cardPaid = 0;
+    debtAmount = Math.max(0, total - cashPaid);
+    given = cashPaid;
+  }
   else {
     // Смешанная: карта автоматически = остаток после наличных
     cashPaid = Math.min(Math.max(0, cashNum), total);
@@ -401,11 +415,12 @@ function PayDialog({
   }
 
   const change = method === "cash" ? Math.max(0, cashNum - total) : 0;
-  const insufficient = method === "mixed" ? false : given < total - 0.01;
+  const insufficient = method === "mixed" || method === "debt" ? false : given < total - 0.01;
 
   async function pay() {
     if (!cashierId) return;
     if (insufficient) { toast.error("Недостаточно средств"); return; }
+    if (method === "debt" && !debtor.trim()) { toast.error("Укажите, кто должен"); return; }
     setBusy(true);
     try {
       const client_uuid = await queueSaleOffline({
@@ -417,6 +432,8 @@ function PayDialog({
         given_amount: given,
         change_amount: change,
         payment_method: method,
+        debt_amount: debtAmount,
+        debtor_name: method === "debt" ? debtor.trim() : null,
         items: cart.map((l) => ({
           product_id: l.product_id,
           product_name: l.name,
@@ -448,14 +465,21 @@ function PayDialog({
           <DialogTitle>Оплата · {formatUZS(total)}</DialogTitle>
         </DialogHeader>
         <Tabs value={method} onValueChange={(v) => setMethod(v as any)}>
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="cash">Наличные</TabsTrigger>
             <TabsTrigger value="card">Карта</TabsTrigger>
             <TabsTrigger value="mixed">Смешанная</TabsTrigger>
+            <TabsTrigger value="debt">Долг</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="space-y-3 pt-2">
-          {(method === "cash" || method === "mixed") && (
+          {method === "debt" && (
+            <div>
+              <label className="text-sm text-muted-foreground">Кто должен (имя)</label>
+              <Input value={debtor} onChange={(e) => setDebtor(e.target.value)} placeholder="Например, Азиз" className="h-12 text-lg" />
+            </div>
+          )}
+          {(method === "cash" || method === "mixed" || method === "debt") && (
             <div>
               <label className="text-sm text-muted-foreground">Наличные (клиент дал)</label>
               <Input type="number" inputMode="numeric" value={cash} onChange={(e) => setCash(e.target.value)} className="h-12 text-lg" />
@@ -481,6 +505,11 @@ function PayDialog({
             {method === "cash" && change > 0 && (
               <div className="flex justify-between text-primary text-base pt-1 border-t border-border">
                 <span>Сдача:</span><span className="font-bold">{formatUZS(change)}</span>
+              </div>
+            )}
+            {method === "debt" && (
+              <div className="flex justify-between text-destructive text-base pt-1 border-t border-border">
+                <span>В долг:</span><span className="font-bold">{formatUZS(debtAmount)}</span>
               </div>
             )}
             {insufficient && <div className="text-destructive text-xs">Недостаточно средств</div>}
