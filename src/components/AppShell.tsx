@@ -155,8 +155,42 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="ml-2 opacity-80">· ожидает синхронизации: {pendingCount}</span>
         )}
       </div>
+      {/* Мобильная шапка */}
+      <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-border bg-sidebar">
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <Menu className="w-5 h-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-[82vw] max-w-xs bg-sidebar">
+            <div className="h-full overflow-y-auto" onClick={() => setMenuOpen(false)}>
+              <SidebarBody
+                role={role}
+                profile={profile}
+                online={online}
+                pendingCount={pendingCount ?? 0}
+                unread={unread}
+                currentPath={currentPath}
+                visibleItems={visibleItems}
+                openShift={openShift}
+                shiftBusy={shiftBusy}
+                tick={tick}
+                setShiftBusy={setShiftBusy}
+                loadShift={loadShift}
+                onSignOut={signOut}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+        <div className="font-bold">Gotti Stuff</div>
+        <div className="ml-auto text-xs text-muted-foreground truncate max-w-[45%]">
+          {profile?.nickname ?? profile?.email}
+        </div>
+      </div>
+
       <div className="flex flex-1 min-h-0">
-      <aside className="w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col">
+      <aside className="hidden md:flex w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex-col">
         <div className="px-5 py-5 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold">
