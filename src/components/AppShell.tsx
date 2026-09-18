@@ -156,34 +156,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </div>
       {/* Мобильная шапка */}
-      <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-border bg-sidebar">
+      <div className="md:hidden flex items-center gap-2 px-2 py-2 border-b border-border bg-sidebar">
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="shrink-0">
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-[82vw] max-w-xs bg-sidebar">
-            <div className="h-full overflow-y-auto" onClick={() => setMenuOpen(false)}>
-              <SidebarBody
-                role={role}
-                profile={profile}
-                online={online}
-                pendingCount={pendingCount ?? 0}
-                unread={unread}
-                currentPath={currentPath}
-                visibleItems={visibleItems}
-                openShift={openShift}
-                shiftBusy={shiftBusy}
-                tick={tick}
-                setShiftBusy={setShiftBusy}
-                loadShift={loadShift}
-                onSignOut={signOut}
-              />
+          <SheetContent side="left" className="p-0 w-[85vw] max-w-xs bg-sidebar">
+            <div className="h-full flex flex-col" onClick={() => setMenuOpen(false)}>
+              {sidebarBody}
             </div>
           </SheetContent>
         </Sheet>
-        <div className="font-bold">Gotti Stuff</div>
+        <div className="font-bold truncate">Gotti Stuff</div>
         <div className="ml-auto text-xs text-muted-foreground truncate max-w-[45%]">
           {profile?.nickname ?? profile?.email}
         </div>
@@ -191,87 +177,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex flex-1 min-h-0">
       <aside className="hidden md:flex w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex-col">
-        <div className="px-5 py-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold">
-              G
-            </div>
-            <div>
-              <div className="font-bold text-base leading-tight">Gotti Stuff</div>
-              <div className="text-xs text-muted-foreground">
-                {role === "admin" ? "Владелец" : "Кассир"}
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 text-sm">
-            <div className="font-medium truncate">{profile?.nickname ?? profile?.email}</div>
-          </div>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto py-3">
-          {visibleItems.map((it) => {
-            const active = currentPath === it.to || currentPath.startsWith(it.to + "/");
-            return (
-              <Link
-                key={it.to}
-                to={it.to}
-                className={cn(
-                  "flex items-center gap-3 px-5 py-3 text-sm transition-colors",
-                  active
-                    ? "bg-sidebar-accent text-primary border-l-4 border-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent border-l-4 border-transparent",
-                )}
-              >
-                {it.icon}
-                <span>{it.label}</span>
-                {it.to === "/admin" && unread > 0 && (
-                  <span className="ml-auto bg-destructive text-destructive-foreground text-xs rounded-full px-2 py-0.5">
-                    {unread}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="px-5 py-3 border-t border-sidebar-border space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className={cn("flex items-center gap-1", online ? "text-primary" : "text-destructive")}>
-              {online ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {online ? "Онлайн" : "Офлайн"}
-            </span>
-            {(pendingCount ?? 0) > 0 && (
-              <span className="text-yellow-500">Ожидает: {pendingCount}</span>
-            )}
-          </div>
-          {role === "cashier" && (
-            <ShiftControl
-              openShift={openShift}
-              busy={shiftBusy}
-              tick={tick}
-              branchId={profile?.branch_id ?? null}
-              onOpened={async () => { await loadShift(); }}
-              onClosed={async () => { await loadShift(); }}
-              setBusy={setShiftBusy}
-            />
-          )}
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-sm"
-            onClick={async () => {
-              await clearOfflineAuth();
-              await supabase.auth.signOut();
-              navigate({ to: "/auth" });
-            }}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Выйти
-          </Button>
-          <div className="text-[10px] text-muted-foreground text-center">v.1.0</div>
-        </div>
+        {sidebarBody}
       </aside>
 
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
