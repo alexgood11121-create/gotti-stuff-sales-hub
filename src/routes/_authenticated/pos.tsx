@@ -166,7 +166,7 @@ function POSPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[calc(100dvh-88px)] md:h-[calc(100dvh-30px)] overflow-hidden">
       {/* Каталог */}
       <div className="flex-1 flex flex-col overflow-hidden bg-background">
         <div className="p-4 border-b border-border space-y-3">
