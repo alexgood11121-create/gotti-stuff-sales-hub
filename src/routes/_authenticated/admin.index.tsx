@@ -252,7 +252,7 @@ function AdminDashboard() {
 
   return (
     <>
-      <div className="p-6 h-screen overflow-y-auto space-y-6">
+      <div className="p-4 md:p-6 min-h-full overflow-x-hidden space-y-6">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold">Дашборд</h1>
@@ -283,7 +283,7 @@ function AdminDashboard() {
           <select
             value={shiftFilter}
             onChange={(e) => { setShiftFilter(e.target.value); if (e.target.value !== "all") setPeriod("30"); }}
-            className="h-9 rounded-md border border-border bg-background px-2 text-sm max-w-[320px]"
+            className="h-9 w-full sm:w-auto rounded-md border border-border bg-background px-2 text-sm max-w-full sm:max-w-[320px]"
           >
             <option value="all">Все смены</option>
             {(shifts as any[]).map((s) => (

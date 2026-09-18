@@ -64,7 +64,7 @@ function CupsPage() {
   }
 
   return (
-    <div className="p-6 h-screen overflow-auto">
+    <div className="p-4 md:p-6 min-h-full overflow-x-hidden">
       <div className="flex items-center justify-between gap-3 mb-4">
         <h1 className="text-2xl font-bold flex items-center gap-2"><CupSoda />Стаканы</h1>
         <Button variant="outline" size="sm" onClick={load}><RefreshCw className="w-4 h-4 mr-1" />Обновить</Button>

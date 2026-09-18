@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   const { profile, role } = useAuth();
   return (
-    <div className="p-6 h-screen overflow-auto">
+    <div className="p-4 md:p-6 min-h-full overflow-x-hidden">
       <h1 className="text-2xl font-bold mb-4">Настройки</h1>
       <Card className="p-4 space-y-2 max-w-lg">
         <Row label="Роль" value={role === "admin" ? "Администратор" : "Кассир"} />
