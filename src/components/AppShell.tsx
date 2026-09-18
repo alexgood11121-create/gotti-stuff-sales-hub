@@ -251,7 +251,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-[85vw] max-w-xs bg-sidebar">
-            <div className="h-full flex flex-col" onClick={() => setMenuOpen(false)}>
+            <div
+              className="h-full flex flex-col"
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest("a")) setMenuOpen(false);
+              }}
+            >
               {sidebarBody}
             </div>
           </SheetContent>
