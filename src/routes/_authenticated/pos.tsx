@@ -229,7 +229,7 @@ function POSPage() {
       </div>
 
       {/* Чек */}
-      <div className="w-96 flex flex-col bg-sidebar border-l border-border">
+      <div className="w-full lg:w-96 shrink-0 max-h-[55dvh] lg:max-h-none flex flex-col bg-sidebar border-t lg:border-t-0 lg:border-l border-border">
         <div className="p-4 border-b border-border">
           <div className="text-sm text-muted-foreground">Текущий чек</div>
           <div className="text-2xl font-bold">{formatUZS(total)}</div>
