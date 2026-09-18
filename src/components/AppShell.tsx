@@ -80,6 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [openShift, setOpenShift] = useState<{ id: string; started_at: string } | null>(null);
   const [shiftBusy, setShiftBusy] = useState(false);
   const [tick, setTick] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const pendingCount = useLiveQuery(
     () => db.pendingSales.where("synced").equals(0).count(),
