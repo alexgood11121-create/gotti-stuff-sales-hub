@@ -23,7 +23,9 @@ import {
   Play,
   Square,
   CupSoda,
+  Menu,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
