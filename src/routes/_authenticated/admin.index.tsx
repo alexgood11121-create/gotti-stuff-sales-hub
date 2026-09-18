@@ -375,6 +375,9 @@ function AdminDashboard() {
                       {s.payment_method === "mixed" && (
                         <> · нал {formatUZS(s.cash_amount)} + карта {formatUZS(s.card_amount)}</>
                       )}
+                      {Number(s.debt_amount ?? 0) > 0 && (
+                        <> · долг {formatUZS(s.debt_amount)}{s.debtor_name ? ` — ${s.debtor_name}` : ""}{s.debt_paid ? " (погашен)" : ""}</>
+                      )}
                     </div>
                   </div>
                   <span
@@ -384,7 +387,9 @@ function AdminDashboard() {
                         ? "bg-primary/20 text-primary"
                         : s.payment_method === "card"
                           ? "bg-blue-500/20 text-blue-500"
-                          : "bg-yellow-500/20 text-yellow-600",
+                          : s.payment_method === "debt"
+                            ? "bg-destructive/20 text-destructive"
+                            : "bg-yellow-500/20 text-yellow-600",
                     )}
                   >
                     {payLabel(s.payment_method)}
