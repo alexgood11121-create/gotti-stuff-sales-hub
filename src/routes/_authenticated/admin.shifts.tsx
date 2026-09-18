@@ -36,7 +36,7 @@ function ShiftsPage() {
   if (role !== "admin") return <div className="p-6 text-muted-foreground">Только для админа</div>;
 
   return (
-    <div className="p-6 h-screen overflow-auto">
+    <div className="p-4 md:p-6 min-h-full overflow-x-hidden">
       <h1 className="text-2xl font-bold flex items-center gap-2 mb-4"><Clock />Смены</h1>
       <Tabs defaultValue="schedule">
         <TabsList>

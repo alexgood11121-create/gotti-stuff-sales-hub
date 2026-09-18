@@ -62,7 +62,7 @@ function ReportsPage() {
   }, [role, user]);
 
   return (
-    <div className="p-6 h-screen overflow-auto">
+    <div className="p-4 md:p-6 min-h-full overflow-x-hidden">
       <h1 className="text-2xl font-bold mb-4">Отчёты — Сегодня</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <Stat label="Выручка" value={stats.revenue} />

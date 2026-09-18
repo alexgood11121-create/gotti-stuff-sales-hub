@@ -84,7 +84,7 @@ function ProductsPage() {
   }
 
   return (
-    <div className="p-6 h-screen overflow-auto">
+    <div className="p-4 md:p-6 min-h-full overflow-x-hidden">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 mb-4">
         <h1 className="truncate text-2xl font-bold">Товары</h1>
         <div className="flex shrink-0 gap-2">

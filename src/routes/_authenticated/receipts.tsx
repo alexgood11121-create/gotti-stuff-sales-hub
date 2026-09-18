@@ -61,7 +61,7 @@ function ReceiptsPage() {
   const myName = profile?.nickname ?? profile?.email ?? "—";
 
   return (
-    <div className="p-6 h-screen overflow-auto">
+    <div className="p-4 md:p-6 min-h-full overflow-x-hidden">
       <div className="flex items-center justify-between mb-4 gap-3">
         <h1 className="text-2xl font-bold">Чеки</h1>
         {!online && (
