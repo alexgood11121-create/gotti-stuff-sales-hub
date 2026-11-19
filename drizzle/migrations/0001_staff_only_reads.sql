@@ -1,0 +1,13 @@
+CREATE OR REPLACE FUNCTION public.is_staff(_user_id uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role IN ('admin','cashier')) $$;
+DROP POLICY IF EXISTS "auth reads cup types" ON public.cup_types;
+CREATE POLICY "staff reads cup types" ON public.cup_types FOR SELECT TO authenticated USING (public.is_staff(auth.uid()));
+DROP POLICY IF EXISTS "auth reads categories" ON public.categories;
+CREATE POLICY "staff reads categories" ON public.categories FOR SELECT TO authenticated USING (public.is_staff(auth.uid()));
+DROP POLICY IF EXISTS "auth reads products" ON public.products;
+CREATE POLICY "staff reads products" ON public.products FOR SELECT TO authenticated USING (public.is_staff(auth.uid()));
+DROP POLICY IF EXISTS "read employees" ON public.company_employees;
+CREATE POLICY "staff reads employees" ON public.company_employees FOR SELECT TO authenticated USING (public.is_staff(auth.uid()));
+DROP POLICY IF EXISTS "read companies" ON public.companies;
+CREATE POLICY "staff reads companies" ON public.companies FOR SELECT TO authenticated USING (public.is_staff(auth.uid()));
+DROP POLICY IF EXISTS "auth reads product images" ON storage.objects;
+CREATE POLICY "staff reads product images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'product-images' AND public.is_staff(auth.uid()));
