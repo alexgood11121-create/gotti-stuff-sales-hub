@@ -373,10 +373,14 @@ function PayDialog({
   cashierId?: string;
   branchId: string | null;
 }) {
-  const [method, setMethod] = useState<"cash" | "card" | "mixed" | "debt">("cash");
+  const [method, setMethod] = useState<"cash" | "card" | "mixed" | "debt" | "company">("cash");
   const [cash, setCash] = useState<string>("");
   const [card, setCard] = useState<string>("");
   const [debtor, setDebtor] = useState<string>("");
+  const [companyId, setCompanyId] = useState<string>("");
+  const [employeeId, setEmployeeId] = useState<string>("");
+  const [empSearch, setEmpSearch] = useState("");
+  const companies = useCompanies(open);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -385,11 +389,14 @@ function PayDialog({
       setCash(String(total));
       setCard("");
       setDebtor("");
+      setCompanyId("");
+      setEmployeeId("");
+      setEmpSearch("");
     }
   }, [open, total]);
 
   useEffect(() => {
-    if (method === "debt") setCash("0");
+    if (method === "debt" || method === "company") setCash("0");
   }, [method]);
 
   const cashNum = Number(cash) || 0;
@@ -407,6 +414,7 @@ function PayDialog({
     debtAmount = Math.max(0, total - cashPaid);
     given = cashPaid;
   }
+  else if (method === "company") { given = total; cashPaid = 0; cardPaid = 0; }
   else {
     // Смешанная: карта автоматически = остаток после наличных
     cashPaid = Math.min(Math.max(0, cashNum), total);
@@ -415,12 +423,13 @@ function PayDialog({
   }
 
   const change = method === "cash" ? Math.max(0, cashNum - total) : 0;
-  const insufficient = method === "mixed" || method === "debt" ? false : given < total - 0.01;
+  const insufficient = method === "mixed" || method === "debt" || method === "company" ? false : given < total - 0.01;
 
   async function pay() {
     if (!cashierId) return;
     if (insufficient) { toast.error("Недостаточно средств"); return; }
     if (method === "debt" && !debtor.trim()) { toast.error("Укажите, кто должен"); return; }
+    if (method === "company" && (!companyId || !employeeId)) { toast.error("Выберите компанию и сотрудника"); return; }
     setBusy(true);
     try {
       const client_uuid = await queueSaleOffline({
@@ -434,6 +443,8 @@ function PayDialog({
         payment_method: method,
         debt_amount: debtAmount,
         debtor_name: method === "debt" ? debtor.trim() : null,
+        company_id: method === "company" ? companyId : null,
+        company_employee_id: method === "company" ? employeeId : null,
         items: cart.map((l) => ({
           product_id: l.product_id,
           product_name: l.name,
@@ -465,14 +476,37 @@ function PayDialog({
           <DialogTitle>Оплата · {formatUZS(total)}</DialogTitle>
         </DialogHeader>
         <Tabs value={method} onValueChange={(v) => setMethod(v as any)}>
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="cash">Наличные</TabsTrigger>
             <TabsTrigger value="card">Карта</TabsTrigger>
             <TabsTrigger value="mixed">Смешанная</TabsTrigger>
             <TabsTrigger value="debt">Долг</TabsTrigger>
+            <TabsTrigger value="company">Компания</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="space-y-3 pt-2">
+          {method === "company" && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {companies.length === 0 && <div className="text-sm text-muted-foreground">Нет компаний. Админ добавляет их в разделе «Компании».</div>}
+                {companies.map((c) => (
+                  <Button key={c.id} type="button" variant={companyId === c.id ? "default" : "outline"} onClick={() => { setCompanyId(c.id); setEmployeeId(""); }}>{c.name}</Button>
+                ))}
+              </div>
+              {companyId && (
+                <>
+                  <Input value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} placeholder="Поиск сотрудника" className="h-10" />
+                  <div className="max-h-48 overflow-y-auto grid gap-1">
+                    {(companies.find((c) => c.id === companyId)?.employees ?? []).filter((e) => e.name.toLowerCase().includes(empSearch.toLowerCase())).map((e) => (
+                      <Button key={e.id} type="button" variant={employeeId === e.id ? "default" : "secondary"} className="justify-start" onClick={() => setEmployeeId(e.id)}>
+                        {e.name}{e.position ? ` · ${e.position}` : ""}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {method === "debt" && (
             <div>
               <label className="text-sm text-muted-foreground">Кто должен (имя)</label>
@@ -597,3 +631,21 @@ function FreeReceiptDialog({
   );
 }
 
+
+type CompanyOpt = { id: string; name: string; employees: { id: string; name: string; position: string | null }[] };
+function useCompanies(open: boolean): CompanyOpt[] {
+  const [list, setList] = useState<CompanyOpt[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    try { const c = localStorage.getItem("gotti_companies"); if (c) setList(JSON.parse(c)); } catch {}
+    if (!navigator.onLine) return;
+    (async () => {
+      const { data } = await (supabase as any).from("companies").select("id,name,company_employees(id,name,position,is_active)").eq("is_active", true).order("name");
+      if (!data) return;
+      const v: CompanyOpt[] = data.map((c: any) => ({ id: c.id, name: c.name, employees: (c.company_employees ?? []).filter((e: any) => e.is_active).sort((a: any, b: any) => a.name.localeCompare(b.name)) }));
+      setList(v);
+      localStorage.setItem("gotti_companies", JSON.stringify(v));
+    })();
+  }, [open]);
+  return list;
+}

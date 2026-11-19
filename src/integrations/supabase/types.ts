@@ -56,6 +56,68 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          contact_name: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      company_employees: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          position: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          position?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          position?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_employees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cup_allocations: {
         Row: {
           branch_id: string | null
@@ -374,6 +436,8 @@ export type Database = {
           cashier_id: string | null
           change_amount: number
           client_uuid: string
+          company_employee_id: string | null
+          company_id: string | null
           created_at: string
           debt_amount: number
           debt_paid: boolean
@@ -391,6 +455,8 @@ export type Database = {
           cashier_id?: string | null
           change_amount?: number
           client_uuid: string
+          company_employee_id?: string | null
+          company_id?: string | null
           created_at?: string
           debt_amount?: number
           debt_paid?: boolean
@@ -408,6 +474,8 @@ export type Database = {
           cashier_id?: string | null
           change_amount?: number
           client_uuid?: string
+          company_employee_id?: string | null
+          company_id?: string | null
           created_at?: string
           debt_amount?: number
           debt_paid?: boolean
@@ -424,6 +492,20 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_company_employee_id_fkey"
+            columns: ["company_employee_id"]
+            isOneToOne: false
+            referencedRelation: "company_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -660,7 +742,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "cashier"
       movement_type: "income" | "expense"
-      payment_method: "cash" | "card" | "mixed" | "debt"
+      payment_method: "cash" | "card" | "mixed" | "debt" | "company"
       sale_status: "open" | "paid" | "cancelled"
     }
     CompositeTypes: {
@@ -791,7 +873,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "cashier"],
       movement_type: ["income", "expense"],
-      payment_method: ["cash", "card", "mixed", "debt"],
+      payment_method: ["cash", "card", "mixed", "debt", "company"],
       sale_status: ["open", "paid", "cancelled"],
     },
   },

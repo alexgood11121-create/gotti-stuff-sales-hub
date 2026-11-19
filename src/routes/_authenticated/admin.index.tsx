@@ -35,7 +35,7 @@ function periodStart(key: string) {
 }
 
 function payLabel(m: string) {
-  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : m === "debt" ? "Долг" : "Смешанная";
+  return m === "cash" ? "Наличные" : m === "card" ? "Карта" : m === "debt" ? "Долг" : m === "company" ? "Компания" : "Смешанная";
 }
 
 function AdminDashboard() {

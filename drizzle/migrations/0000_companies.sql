@@ -1,0 +1,14 @@
+ALTER TYPE public.payment_method ADD VALUE IF NOT EXISTS 'company';
+CREATE TABLE public.companies (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, contact_name text, phone text, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE public.company_employees (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE, name text NOT NULL, position text, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.companies TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.company_employees TO authenticated;
+GRANT ALL ON public.companies TO service_role;
+GRANT ALL ON public.company_employees TO service_role;
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_employees ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "read companies" ON public.companies FOR SELECT TO authenticated USING (true);
+CREATE POLICY "admin manage companies" ON public.companies FOR ALL TO authenticated USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
+CREATE POLICY "read employees" ON public.company_employees FOR SELECT TO authenticated USING (true);
+CREATE POLICY "admin manage employees" ON public.company_employees FOR ALL TO authenticated USING (public.has_role(auth.uid(),'admin')) WITH CHECK (public.has_role(auth.uid(),'admin'));
+ALTER TABLE public.sales ADD COLUMN company_id uuid REFERENCES public.companies(id) ON DELETE SET NULL, ADD COLUMN company_employee_id uuid REFERENCES public.company_employees(id) ON DELETE SET NULL;

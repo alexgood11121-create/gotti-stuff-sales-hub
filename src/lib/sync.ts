@@ -46,6 +46,8 @@ export async function syncPendingSales(): Promise<{ synced: number; failed: numb
             payment_method: s.payment_method,
             debt_amount: s.debt_amount ?? 0,
             debtor_name: s.debtor_name ?? null,
+            company_id: s.company_id ?? null,
+            company_employee_id: s.company_employee_id ?? null,
             items: s.items,
           },
         });

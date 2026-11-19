@@ -5,7 +5,7 @@ import { useAuth, useOnline } from "@/lib/auth-hooks";
 import { startAutoSync } from "@/lib/sync";
 import { db } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
-import {
+import { Building2,
   ShoppingBasket,
   Receipt,
   Package,
@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { startShift, endShift, getMyOpenShift, getExpectedCash } from "@/lib/shifts.functions";
 import { clearOfflineAuth } from "@/lib/offline-auth";
-import {
+import { 
   Dialog,
   DialogContent,
   DialogHeader,
@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
+import { 
   applyAllocationsToShift,
   buildCupRows,
   refreshCupTypes,
@@ -57,6 +57,7 @@ interface Item {
 
 const items: Item[] = [
   { to: "/pos", label: "Продажи", icon: <ShoppingBasket className="w-5 h-5" /> },
+  { to: "/companies", label: "Компании", icon: <Building2 className="w-5 h-5" /> },
   { to: "/receipts", label: "Чеки", icon: <Receipt className="w-5 h-5" /> },
   { to: "/income", label: "Приход", icon: <ArrowDownCircle className="w-5 h-5" /> },
   { to: "/expense", label: "Расход", icon: <ArrowUpCircle className="w-5 h-5" /> },
