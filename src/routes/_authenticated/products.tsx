@@ -46,14 +46,26 @@ function ProductsPage() {
   function changeView(v: ViewMode) { setView(v); localStorage.setItem("products-view", v); }
   function changeSort(s: SortKey) { setSort(s); localStorage.setItem("products-sort", s); }
 
-  async function load() {
-    const [{ data: p }, { data: c }] = await Promise.all([
+  async function load(attempt = 0): Promise<void> {
+    const [{ data: p, error: e1 }, { data: c, error: e2 }] = await Promise.all([
       supabase.from("products").select("*, categories(name)").order("name"),
       supabase.from("categories").select("*").order("name"),
     ]);
+    if (e1 || e2) {
+      // после обновления страницы сессия может ещё не успеть подняться — повторяем
+      if (attempt < 5) { setTimeout(() => load(attempt + 1), 800 * (attempt + 1)); }
+      return;
+    }
     setProducts(p ?? []); setCats(c ?? []);
+    try { localStorage.setItem("products-cache", JSON.stringify({ p: p ?? [], c: c ?? [] })); } catch { /* ignore */ }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("products-cache");
+      if (raw) { const v = JSON.parse(raw); setProducts(v.p ?? []); setCats(v.c ?? []); }
+    } catch { /* ignore */ }
+    load();
+  }, []);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();

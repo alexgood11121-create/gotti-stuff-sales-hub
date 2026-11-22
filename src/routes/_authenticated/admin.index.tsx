@@ -38,6 +38,10 @@ function payLabel(m: string) {
   return m === "cash" ? "Наличные" : m === "card" ? "Карта" : m === "debt" ? "Долг" : m === "company" ? "Компания" : "Смешанная";
 }
 
+function readCache(key: string): any {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : undefined; } catch { return undefined; }
+}
+
 function AdminDashboard() {
   const [selected, setSelected] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>("today");
@@ -46,7 +50,14 @@ function AdminDashboard() {
 
   const shiftsQ = useQuery({
     queryKey: ["admin-shifts-list"],
-    queryFn: () => listShifts({ data: { limit: 100 } }),
+    queryFn: async () => {
+      const v = await listShifts({ data: { limit: 100 } });
+      try { localStorage.setItem("admin-shifts-cache", JSON.stringify(v)); } catch { /* ignore */ }
+      return v;
+    },
+    placeholderData: () => readCache("admin-shifts-cache"),
+    retry: 5,
+    retryDelay: (n) => Math.min(800 * (n + 1), 4000),
     refetchInterval: 30000,
   });
 
@@ -60,6 +71,9 @@ function AdminDashboard() {
   const salesQ = useQuery({
     queryKey: ["admin-sales", period],
     refetchInterval: 30000,
+    placeholderData: () => readCache(`admin-sales-cache-${period}`),
+    retry: 5,
+    retryDelay: (n) => Math.min(800 * (n + 1), 4000),
     queryFn: async () => {
       const from = periodStart(period).toISOString();
       const { data, error } = await supabase
@@ -74,7 +88,9 @@ function AdminDashboard() {
         const { data: profs } = await supabase.from("profiles").select("id, nickname, email").in("id", ids);
         names = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nickname ?? p.email ?? "—"]));
       }
-      return (data ?? []).map((s: any) => ({ ...s, cashier_name: names[s.cashier_id] ?? "—" }));
+      const rows = (data ?? []).map((s: any) => ({ ...s, cashier_name: names[s.cashier_id] ?? "—" }));
+      try { localStorage.setItem(`admin-sales-cache-${period}`, JSON.stringify(rows)); } catch { /* ignore */ }
+      return rows;
     },
   });
 
