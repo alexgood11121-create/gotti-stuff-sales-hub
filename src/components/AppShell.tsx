@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { startShift, endShift, getMyOpenShift, getExpectedCash } from "@/lib/shifts.functions";
 import { clearOfflineAuth } from "@/lib/offline-auth";
+import { getShiftSummary, type ShiftSummary } from "@/lib/shift-summary";
 import { 
   Dialog,
   DialogContent,
@@ -297,6 +298,7 @@ function ShiftControl({
   const [actual, setActual] = useState("");
   const [expected, setExpected] = useState<{ expected: number; opening: number; cashSales: number } | null>(null);
   const { user } = useAuth();
+  const [summary, setSummary] = useState<ShiftSummary | null>(null);
   const [cupRows, setCupRows] = useState<CupUsageRow[]>([]);
   const [cupCounts, setCupCounts] = useState<Record<string, string>>({});
 
@@ -328,6 +330,7 @@ function ShiftControl({
               setExpected(e);
               setActual(String(e.expected));
             } catch { setExpected(null); setActual(""); }
+            try { setSummary(user?.id ? await getShiftSummary(user.id, openShift.started_at) : null); } catch { setSummary(null); }
             try {
               if (openShift) {
                 await refreshCupTypes();
@@ -397,6 +400,25 @@ function ShiftControl({
                 <div className="flex justify-between"><span>Остаток при открытии</span><span>{expected.opening.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span>Продажи наличными</span><span>{expected.cashSales.toLocaleString()}</span></div>
                 <div className="flex justify-between font-semibold border-t border-border pt-1"><span>Ожидается в кассе</span><span>{expected.expected.toLocaleString()}</span></div>
+              </div>
+            )}
+            {summary && (
+              <div className="space-y-1 rounded-md bg-muted/40 p-3 text-sm">
+                {summary.companies.length > 0 && (
+                  <>
+                    <div className="font-semibold">Компании (не в кассе)</div>
+                    {summary.companies.map((c, i) => (
+                      <div key={i} className="flex justify-between gap-2">
+                        <span className="truncate">{c.company}{c.employee ? ` · ${c.employee}` : ""}{c.extra > 0 ? ` (+доплата ${c.extra.toLocaleString()})` : ""}</span>
+                        <span>{c.companyAmount.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+                <div className="flex justify-between border-t border-border pt-1"><span>Наличные</span><span>{summary.cash.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Карта</span><span>{summary.card.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Компании (безнал)</span><span>{summary.company.toLocaleString()}</span></div>
+                <div className="flex justify-between font-semibold border-t border-border pt-1"><span>Общий итог смены</span><span>{summary.total.toLocaleString()}</span></div>
               </div>
             )}
             <div>

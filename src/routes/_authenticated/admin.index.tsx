@@ -101,11 +101,16 @@ function AdminDashboard() {
         acc.total += Number(s.total ?? 0);
         acc.cash += Number(s.cash_amount ?? 0);
         acc.card += Number(s.card_amount ?? 0);
+        if (s.payment_method === "company") {
+          const comp = Math.max(0, Number(s.total ?? 0) - Number(s.cash_amount ?? 0) - Number(s.card_amount ?? 0));
+          acc.card += comp; // компания платит только картой
+          acc.company += comp;
+        }
         if (!s.debt_paid) acc.debt += Number(s.debt_amount ?? 0);
         acc[s.payment_method] = (acc[s.payment_method] ?? 0) + 1;
         return acc;
       },
-      { total: 0, cash: 0, card: 0, debt: 0, cash_n: 0, card_n: 0 },
+      { total: 0, cash: 0, card: 0, debt: 0, company: 0, cash_n: 0, card_n: 0 },
     );
   }, [sales]);
 
@@ -131,7 +136,8 @@ function AdminDashboard() {
           rows: [
             ["Выручка всего", formatUZS(sums.total)],
             ["Наличными", formatUZS(sums.cash)],
-            ["Картой", formatUZS(sums.card)],
+            ["Картой (вкл. компании)", formatUZS(sums.card)],
+            ["Из них компании", formatUZS(sums.company)],
             ["Чеков", sales.length],
           ],
         },
@@ -217,7 +223,8 @@ function AdminDashboard() {
           ["Показатель", "Сумма"],
           ["Выручка всего", sums.total],
           ["Наличными", sums.cash],
-          ["Картой", sums.card],
+          ["Картой (вкл. компании)", sums.card],
+          ["Из них компании", sums.company],
           ["Чеков", sales.length],
         ],
       },

@@ -380,6 +380,8 @@ function PayDialog({
   const [companyId, setCompanyId] = useState<string>("");
   const [employeeId, setEmployeeId] = useState<string>("");
   const [empSearch, setEmpSearch] = useState("");
+  const [extra, setExtra] = useState("");
+  const [extraMethod, setExtraMethod] = useState<"cash" | "card">("cash");
   const companies = useCompanies(open);
   const [busy, setBusy] = useState(false);
 
@@ -392,6 +394,8 @@ function PayDialog({
       setCompanyId("");
       setEmployeeId("");
       setEmpSearch("");
+      setExtra("");
+      setExtraMethod("cash");
     }
   }, [open, total]);
 
@@ -414,13 +418,21 @@ function PayDialog({
     debtAmount = Math.max(0, total - cashPaid);
     given = cashPaid;
   }
-  else if (method === "company") { given = total; cashPaid = 0; cardPaid = 0; }
+  else if (method === "company") {
+    // Компания платит картой (безнал); сотрудник может доплатить из своего кармана
+    const ex = Math.min(Math.max(0, Number(extra) || 0), total);
+    cashPaid = extraMethod === "cash" ? ex : 0;
+    cardPaid = extraMethod === "card" ? ex : 0;
+    given = total;
+  }
   else {
     // Смешанная: карта автоматически = остаток после наличных
     cashPaid = Math.min(Math.max(0, cashNum), total);
     cardPaid = Math.max(0, total - cashPaid);
     given = cashPaid + cardPaid;
   }
+
+  const companyAmount = method === "company" ? Math.max(0, total - cashPaid - cardPaid) : 0;
 
   const change = method === "cash" ? Math.max(0, cashNum - total) : 0;
   const insufficient = method === "mixed" || method === "debt" || method === "company" ? false : given < total - 0.01;
@@ -505,6 +517,15 @@ function PayDialog({
                   </div>
                 </>
               )}
+              <div className="rounded-md border border-border p-2 space-y-2">
+                <label className="text-sm text-muted-foreground">Доплата сотрудника (из своего кармана)</label>
+                <Input type="number" inputMode="numeric" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="0" className="h-11 text-lg" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant={extraMethod === "cash" ? "default" : "outline"} onClick={() => setExtraMethod("cash")}>Наличные</Button>
+                  <Button type="button" variant={extraMethod === "card" ? "default" : "outline"} onClick={() => setExtraMethod("card")}>Карта</Button>
+                </div>
+                <div className="flex justify-between text-sm"><span>На компанию (карта)</span><span className="font-semibold">{formatUZS(companyAmount)}</span></div>
+              </div>
             </div>
           )}
           {method === "debt" && (
