@@ -399,6 +399,14 @@ function PayDialog({
     }
   }, [open, total]);
 
+  // Лимит компании на один чек: всё что выше — доплачивает сотрудник
+  useEffect(() => {
+    if (method !== "company" || !companyId) return;
+    const lim = companies.find((c) => c.id === companyId)?.limit ?? 30000;
+    const over = Math.max(0, total - lim);
+    setExtra(over > 0 ? String(over) : "");
+  }, [method, companyId, total, companies]);
+
   useEffect(() => {
     if (method === "debt" || method === "company") setCash("0");
   }, [method]);
@@ -524,6 +532,7 @@ function PayDialog({
                   <Button type="button" variant={extraMethod === "cash" ? "default" : "outline"} onClick={() => setExtraMethod("cash")}>Наличные</Button>
                   <Button type="button" variant={extraMethod === "card" ? "default" : "outline"} onClick={() => setExtraMethod("card")}>Карта</Button>
                 </div>
+                <div className="text-xs text-muted-foreground">Лимит компании на человека: {formatUZS(companies.find((c) => c.id === companyId)?.limit ?? 30000)}</div>
                 <div className="flex justify-between text-sm"><span>На компанию (карта)</span><span className="font-semibold">{formatUZS(companyAmount)}</span></div>
               </div>
             </div>
@@ -653,19 +662,22 @@ function FreeReceiptDialog({
 }
 
 
-type CompanyOpt = { id: string; name: string; employees: { id: string; name: string; position: string | null }[] };
+type CompanyOpt = { id: string; name: string; limit: number; employees: { id: string; name: string; position: string | null }[] };
 function useCompanies(open: boolean): CompanyOpt[] {
   const [list, setList] = useState<CompanyOpt[]>([]);
   useEffect(() => {
     if (!open) return;
     try { const c = localStorage.getItem("gotti_companies"); if (c) setList(JSON.parse(c)); } catch {}
     if (!navigator.onLine) return;
+    const last = Number(localStorage.getItem("gotti_companies_at") ?? 0);
+    if (Date.now() - last < 5 * 60_000 && localStorage.getItem("gotti_companies")) return;
     (async () => {
-      const { data } = await (supabase as any).from("companies").select("id,name,company_employees(id,name,position,is_active)").eq("is_active", true).order("name");
+      const { data } = await (supabase as any).from("companies").select("id,name,employee_limit,company_employees(id,name,position,is_active)").eq("is_active", true).order("name");
       if (!data) return;
-      const v: CompanyOpt[] = data.map((c: any) => ({ id: c.id, name: c.name, employees: (c.company_employees ?? []).filter((e: any) => e.is_active).sort((a: any, b: any) => a.name.localeCompare(b.name)) }));
+      const v: CompanyOpt[] = data.map((c: any) => ({ id: c.id, name: c.name, limit: Number(c.employee_limit ?? 30000), employees: (c.company_employees ?? []).filter((e: any) => e.is_active).sort((a: any, b: any) => a.name.localeCompare(b.name)) }));
       setList(v);
       localStorage.setItem("gotti_companies", JSON.stringify(v));
+      localStorage.setItem("gotti_companies_at", String(Date.now()));
     })();
   }, [open]);
   return list;

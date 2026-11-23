@@ -17,8 +17,8 @@ export const Route = createFileRoute("/_authenticated/companies")({
 });
 
 type Emp = { id: string; name: string; position: string | null; is_active: boolean };
-type Company = { id: string; name: string; contact_name: string | null; phone: string | null; company_employees: Emp[] };
-type SaleRow = { id: string; created_at: string; total: number; company_employee_id: string | null; debt_paid: boolean; sale_items: { product_name: string; variant_size: string | null; qty: number; total: number }[] };
+type Company = { id: string; name: string; contact_name: string | null; phone: string | null; employee_limit: number; company_employees: Emp[] };
+type SaleRow = { id: string; created_at: string; total: number; cash_amount: number; card_amount: number; company_employee_id: string | null; debt_paid: boolean; sale_items: { product_name: string; variant_size: string | null; qty: number; total: number }[] };
 
 const db = supabase as any;
 
@@ -35,7 +35,7 @@ function CompaniesPage() {
   const [sales, setSales] = useState<SaleRow[]>([]);
 
   async function load() {
-    const { data, error } = await db.from("companies").select("id,name,contact_name,phone,company_employees(id,name,position,is_active)").eq("is_active", true).order("name");
+    const { data, error } = await db.from("companies").select("id,name,contact_name,phone,employee_limit,company_employees(id,name,position,is_active)").eq("is_active", true).order("name");
     if (error) { toast.error(error.message); return; }
     setList(data ?? []);
   }
@@ -45,21 +45,28 @@ function CompaniesPage() {
     if (!sel) return;
     const [y, m] = month.split("-").map(Number);
     const from = new Date(y, m - 1, 1).toISOString(); const to = new Date(y, m, 1).toISOString();
-    const { data } = await db.from("sales").select("id,created_at,total,company_employee_id,debt_paid,sale_items(product_name,variant_size,qty,total)")
+    const { data } = await db.from("sales").select("id,created_at,total,cash_amount,card_amount,company_employee_id,debt_paid,sale_items(product_name,variant_size,qty,total)")
       .eq("company_id", sel).gte("created_at", from).lt("created_at", to).neq("status", "cancelled").order("created_at", { ascending: false });
     setSales(data ?? []);
   }
   useEffect(() => { loadSales(); }, [sel, month]);
 
   const company = list.find((c) => c.id === sel);
+  const comp = (s: SaleRow) => Math.max(0, Number(s.total) - Number(s.cash_amount ?? 0) - Number(s.card_amount ?? 0));
+  async function saveLimit(v: number) {
+    if (!sel || !(v >= 0)) return;
+    const { error } = await db.from("companies").update({ employee_limit: v }).eq("id", sel);
+    if (error) return toast.error(error.message);
+    toast.success("Лимит сохранён"); load();
+  }
   const empName_ = (id: string | null) => company?.company_employees.find((e) => e.id === id)?.name ?? "—";
   const byEmp = useMemo(() => {
     const m = new Map<string, number>();
-    for (const s of sales) m.set(s.company_employee_id ?? "", (m.get(s.company_employee_id ?? "") ?? 0) + Number(s.total));
+    for (const s of sales) m.set(s.company_employee_id ?? "", (m.get(s.company_employee_id ?? "") ?? 0) + comp(s));
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [sales]);
-  const overall = sales.reduce((a, s) => a + Number(s.total), 0);
-  const unpaid = sales.filter((s) => !s.debt_paid).reduce((a, s) => a + Number(s.total), 0);
+  const overall = sales.reduce((a, s) => a + comp(s), 0);
+  const unpaid = sales.filter((s) => !s.debt_paid).reduce((a, s) => a + comp(s), 0);
 
   async function addCompany() {
     if (!name.trim()) return;
@@ -86,8 +93,20 @@ function CompaniesPage() {
     toast.success("Отмечено как оплачено"); loadSales();
   }
   function exportXlsx() {
-    const rows = sales.flatMap((s) => s.sale_items.map((i) => ({ Дата: new Date(s.created_at).toLocaleString("ru-RU"), Сотрудник: empName_(s.company_employee_id), Товар: i.product_name + (i.variant_size ? ` (${i.variant_size})` : ""), Кол: i.qty, Сумма: Number(i.total) })));
-    rows.push({ Дата: "ИТОГО", Сотрудник: "", Товар: "", Кол: 0, Сумма: overall } as any);
+    const rows: any[] = sales.slice().reverse().map((s) => {
+      const d = new Date(s.created_at);
+      return {
+        Дата: d.toLocaleDateString("ru-RU"),
+        Время: d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+        Сотрудник: empName_(s.company_employee_id),
+        Товары: s.sale_items.map((i) => `${i.product_name}${i.variant_size ? ` (${i.variant_size})` : ""} ×${i.qty}`).join(", "),
+        "Сумма чека": Number(s.total),
+        "На компанию": comp(s),
+      };
+    });
+    rows.push({});
+    for (const [id, sum] of byEmp) rows.push({ Дата: "Итого сотрудник", Сотрудник: empName_(id), "На компанию": sum });
+    rows.push({ Дата: "ИТОГО К ОПЛАТЕ", "На компанию": overall });
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Отчёт");
     XLSX.writeFile(wb, `${company?.name ?? "company"}-${month}.xlsx`);
   }
@@ -117,6 +136,12 @@ function CompaniesPage() {
           <div className="space-y-4">
             <Card className="p-4 space-y-2">
               <div className="font-semibold">Сотрудники</div>
+              {isAdmin && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Лимит на человека (за чек):</span>
+                  <Input key={company.id + company.employee_limit} type="number" defaultValue={company.employee_limit ?? 30000} className="w-32 h-9" onBlur={(e) => { const v = Number(e.target.value); if (v !== Number(company.employee_limit)) saveLimit(v); }} />
+                </div>
+              )}
               {isAdmin && (
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input placeholder="Имя сотрудника" value={empName} onChange={(e) => setEmpName(e.target.value)} />
@@ -153,7 +178,7 @@ function CompaniesPage() {
                   {sales.length === 0 && <div className="text-sm text-muted-foreground">Нет покупок за этот месяц</div>}
                   {sales.map((s) => (
                     <div key={s.id} className="border border-border rounded-lg p-2 text-sm">
-                      <div className="flex justify-between"><span>{empName_(s.company_employee_id)} · {new Date(s.created_at).toLocaleString("ru-RU")}</span><span className="font-semibold">{formatUZS(Number(s.total))}{s.debt_paid ? " ✓" : ""}</span></div>
+                      <div className="flex justify-between"><span>{empName_(s.company_employee_id)} · {new Date(s.created_at).toLocaleString("ru-RU")}</span><span className="font-semibold">{formatUZS(comp(s))}{comp(s) < Number(s.total) ? ` (чек ${formatUZS(Number(s.total))})` : ""}{s.debt_paid ? " ✓" : ""}</span></div>
                       <div className="text-muted-foreground">{s.sale_items.map((i) => `${i.product_name}${i.variant_size ? ` (${i.variant_size})` : ""} ×${i.qty}`).join(", ")}</div>
                     </div>
                   ))}

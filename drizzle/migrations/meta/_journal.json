@@ -15,6 +15,13 @@
       "when": 1795106331783,
       "tag": "0001_staff_only_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795443637186,
+      "tag": "0002_company_limit_and_sales_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -58,7 +58,8 @@ function AdminDashboard() {
     placeholderData: () => readCache("admin-shifts-cache"),
     retry: 5,
     retryDelay: (n) => Math.min(800 * (n + 1), 4000),
-    refetchInterval: 30000,
+    refetchInterval: 60000,
+    staleTime: 20000,
   });
 
   const detailsQ = useQuery({
@@ -70,7 +71,8 @@ function AdminDashboard() {
   // Все продажи за период — для кассы и разбивки нал/карта
   const salesQ = useQuery({
     queryKey: ["admin-sales", period],
-    refetchInterval: 30000,
+    refetchInterval: 60000,
+    staleTime: 20000,
     placeholderData: () => readCache(`admin-sales-cache-${period}`),
     retry: 5,
     retryDelay: (n) => Math.min(800 * (n + 1), 4000),
