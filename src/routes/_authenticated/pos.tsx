@@ -526,11 +526,11 @@ function PayDialog({
                 </>
               )}
               <div className="rounded-md border border-border p-2 space-y-2">
-                <label className="text-sm text-muted-foreground">Доплата сотрудника (из своего кармана)</label>
+                <label className="text-sm font-semibold">Остаток платит сотрудник: {formatUZS(Math.min(Math.max(0, Number(extra) || 0), total))}</label>
                 <Input type="number" inputMode="numeric" value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="0" className="h-11 text-lg" />
                 <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant={extraMethod === "cash" ? "default" : "outline"} onClick={() => setExtraMethod("cash")}>Наличные</Button>
-                  <Button type="button" variant={extraMethod === "card" ? "default" : "outline"} onClick={() => setExtraMethod("card")}>Карта</Button>
+                  <Button type="button" variant={extraMethod === "cash" ? "default" : "outline"} className="h-12 text-base" onClick={() => setExtraMethod("cash")}>💵 Наличные</Button>
+                  <Button type="button" variant={extraMethod === "card" ? "default" : "outline"} className="h-12 text-base" onClick={() => setExtraMethod("card")}>💳 Пластик</Button>
                 </div>
                 <div className="text-xs text-muted-foreground">Лимит компании на человека: {formatUZS(companies.find((c) => c.id === companyId)?.limit ?? 30000)}</div>
                 <div className="flex justify-between text-sm"><span>На компанию (карта)</span><span className="font-semibold">{formatUZS(companyAmount)}</span></div>

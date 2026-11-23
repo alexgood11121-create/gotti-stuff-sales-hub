@@ -100,7 +100,6 @@ function CompaniesPage() {
         Время: d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
         Сотрудник: empName_(s.company_employee_id),
         Товары: s.sale_items.map((i) => `${i.product_name}${i.variant_size ? ` (${i.variant_size})` : ""} ×${i.qty}`).join(", "),
-        "Сумма чека": Number(s.total),
         "На компанию": comp(s),
       };
     });
